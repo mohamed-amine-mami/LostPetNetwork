@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2dc8ef5486fd409eb842d77eb0fbbc4, type: 3}
+  m_Name: PhotoLibrary
+  m_EditorClassIdentifier: LostPetNetwork.UI::LostPetNetwork.UI.PhotoLibrary
+  entries:
+  - key: biscuit
+    sprite: {fileID: 21300000, guid: ba0ba4b75542c4469bea17823083ca8e, type: 3}
+  - key: luna
+    sprite: {fileID: 21300000, guid: 94311ee58a9a842aaa86900cf59cc4b0, type: 3}
+  - key: max
+    sprite: {fileID: 21300000, guid: e65a1ca4617484d499a29b4c1d2d5deb, type: 3}
+  - key: auth
+    sprite: {fileID: 21300000, guid: 83ada5d0c181c458894f88ecdf686f65, type: 3}

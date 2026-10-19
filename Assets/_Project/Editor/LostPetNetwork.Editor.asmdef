@@ -1,0 +1,22 @@
+{
+    "name": "LostPetNetwork.Editor",
+    "rootNamespace": "LostPetNetwork.EditorTools",
+    "references": [
+        "LostPetNetwork.Services",
+        "LostPetNetwork.UI",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

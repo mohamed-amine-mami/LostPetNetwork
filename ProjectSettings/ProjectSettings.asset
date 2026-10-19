@@ -8,11 +8,11 @@ PlayerSettings:
   AndroidProfiler: 0
   AndroidFilterTouchesWhenObscured: 0
   AndroidEnableSustainedPerformanceMode: 0
-  defaultScreenOrientation: 4
+  defaultScreenOrientation: 0
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: DefaultCompany
+  companyName: LostPetNetwork
   productName: LostPetNetwork
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
@@ -170,7 +170,9 @@ PlayerSettings:
   androidMaxAspectRatio: 2.4
   androidMinAspectRatio: 1
   applicationIdentifier:
+    Android: com.lostpetnetwork.app
     Standalone: com.DefaultCompany.2D-URP
+    iPhone: com.lostpetnetwork.app
   buildNumber:
     Standalone: 0
     VisionOS: 0
@@ -457,7 +459,7 @@ PlayerSettings:
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
-  cameraUsageDescription: 
+  cameraUsageDescription: LostPetNetwork uses the camera so you can add a photo of a lost or found pet to your report.
   locationUsageDescription: 
   microphoneUsageDescription: 
   bluetoothUsageDescription: 
