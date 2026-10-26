@@ -25,14 +25,32 @@ namespace LostPetNetwork.Services.Reports
         public string OwnerName;
         public int ContactRequests;
         public float DistanceKm;
+        /// <summary>Where the pet was seen (0,0 means unknown).</summary>
+        public double Latitude, Longitude;
         /// <summary>Normalised 0..1 position used by the stylised map preview.</summary>
         public float MapX, MapY;
         /// <summary>Key of a bundled demo photo ("biscuit", "luna", "max") or null.</summary>
         public string PhotoKey;
         /// <summary>JPEG bytes captured with the in-app camera, or null.</summary>
         public byte[] PhotoBytes;
+        /// <summary>JSON of the pet's 3D look (PetConfig), or null when none was designed.</summary>
+        public string PetAvatarJson;
+        /// <summary>Storage path of the uploaded photo (reports from Supabase), or null.</summary>
+        public string PhotoPath;
+        /// <summary>True when the report was saved but its photo could not be uploaded.</summary>
+        public bool PhotoUploadFailed;
         /// <summary>True for every report served by <see cref="MockReportRepository"/>.</summary>
         public bool IsDemo = true;
+
+        public bool HasLocation => Math.Abs(Latitude) > 0.0001 || Math.Abs(Longitude) > 0.0001;
+
+        /// <summary>Distance from the user in km: real when both positions are known, otherwise the sample value.</summary>
+        public float DistanceFromKm(Services.Sensors.GeoFix? user, out bool isReal)
+        {
+            isReal = user.HasValue && HasLocation;
+            if (!isReal) return DistanceKm;
+            return (float)(Services.Sensors.GeoMath.DistanceMeters(user.Value.Latitude, user.Value.Longitude, Latitude, Longitude) / 1000.0);
+        }
 
         public string DisplayName => string.IsNullOrWhiteSpace(PetName)
             ? (Type == ReportType.Lost ? "Missing " : "Found ") + Species.ToString().ToLowerInvariant()
@@ -68,6 +86,11 @@ namespace LostPetNetwork.Services.Reports
         public string LocationText = string.Empty;
         public WhenOption When = WhenOption.JustNow;
         public byte[] PhotoBytes;
+        public string PetAvatarJson;
+        /// <summary>Coordinates of the spot, when the user chose "Use my current location".</summary>
+        public double? Latitude, Longitude;
+        /// <summary>The place name that was filled in for those coordinates; editing the text discards them.</summary>
+        public string GeoLabel;
 
         public const string LocationKey = "location";
         public const string SpeciesKey = "species";

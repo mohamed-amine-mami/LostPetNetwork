@@ -22,6 +22,22 @@ namespace LostPetNetwork.Services.Supabase
         public bool IsSuccess => !NetworkError && StatusCode >= 200 && StatusCode < 300;
     }
 
+    public readonly struct BytesResponse
+    {
+        public readonly long StatusCode;
+        public readonly byte[] Data;
+        public readonly bool NetworkError;
+
+        public BytesResponse(long statusCode, byte[] data, bool networkError)
+        {
+            StatusCode = statusCode;
+            Data = data;
+            NetworkError = networkError;
+        }
+
+        public bool IsSuccess => !NetworkError && StatusCode >= 200 && StatusCode < 300;
+    }
+
     [Serializable]
     internal class SupabaseErrorDto
     {
@@ -40,14 +56,14 @@ namespace LostPetNetwork.Services.Supabase
         const int TimeoutSeconds = 15;
 
         public static Task<HttpResponse> SendAsync(string method, string url, string jsonBody = null,
-            string accessToken = null, string preferHeader = null, bool singleObject = false)
+            string accessToken = null, string preferHeader = null, bool singleObject = false, int timeoutSeconds = TimeoutSeconds)
         {
             var tcs = new TaskCompletionSource<HttpResponse>();
 
             var request = new UnityWebRequest(url, method)
             {
                 downloadHandler = new DownloadHandlerBuffer(),
-                timeout = TimeoutSeconds
+                timeout = timeoutSeconds
             };
             if (jsonBody != null)
             {
@@ -62,6 +78,49 @@ namespace LostPetNetwork.Services.Supabase
             if (singleObject)
                 request.SetRequestHeader("Accept", "application/vnd.pgrst.object+json");
 
+            var op = request.SendWebRequest();
+            op.completed += _ =>
+            {
+                bool netError = request.result == UnityWebRequest.Result.ConnectionError
+                                || request.result == UnityWebRequest.Result.DataProcessingError;
+                tcs.TrySetResult(new HttpResponse(request.responseCode, request.downloadHandler?.text, netError));
+                request.Dispose();
+            };
+            return tcs.Task;
+        }
+
+        /// <summary>Downloads a file (for example a report photo from Storage) with the user's access token.</summary>
+        public static Task<BytesResponse> GetBytesAsync(string url, string accessToken)
+        {
+            var tcs = new TaskCompletionSource<BytesResponse>();
+            var request = new UnityWebRequest(url, "GET") { downloadHandler = new DownloadHandlerBuffer(), timeout = TimeoutSeconds };
+            request.SetRequestHeader("apikey", SupabaseConfig.PublishableKey);
+            if (!string.IsNullOrEmpty(accessToken)) request.SetRequestHeader("Authorization", "Bearer " + accessToken);
+            var op = request.SendWebRequest();
+            op.completed += _ =>
+            {
+                bool netError = request.result == UnityWebRequest.Result.ConnectionError
+                                || request.result == UnityWebRequest.Result.DataProcessingError;
+                tcs.TrySetResult(new BytesResponse(request.responseCode, request.downloadHandler?.data, netError));
+                request.Dispose();
+            };
+            return tcs.Task;
+        }
+
+        /// <summary>Uploads a file to Supabase Storage. Replaces an existing file at the same path.</summary>
+        public static Task<HttpResponse> UploadBytesAsync(string url, byte[] data, string contentType, string accessToken)
+        {
+            var tcs = new TaskCompletionSource<HttpResponse>();
+            var request = new UnityWebRequest(url, "POST")
+            {
+                uploadHandler = new UploadHandlerRaw(data),
+                downloadHandler = new DownloadHandlerBuffer(),
+                timeout = 30
+            };
+            request.SetRequestHeader("Content-Type", contentType);
+            request.SetRequestHeader("x-upsert", "true");
+            request.SetRequestHeader("apikey", SupabaseConfig.PublishableKey);
+            if (!string.IsNullOrEmpty(accessToken)) request.SetRequestHeader("Authorization", "Bearer " + accessToken);
             var op = request.SendWebRequest();
             op.completed += _ =>
             {

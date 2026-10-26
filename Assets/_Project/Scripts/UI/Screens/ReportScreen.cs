@@ -36,6 +36,9 @@ namespace LostPetNetwork.UI
         [SerializeField] TextFieldView nameField;
         [SerializeField] TextFieldView descriptionField;
         [SerializeField] LoadingButton reviewButton;
+        [SerializeField] GameObject demoNote;
+        [SerializeField] Button pet3dButton;
+        [SerializeField] TMP_Text pet3dCaption;
         [SerializeField] MessageBanner banner;
         [SerializeField] GameObject reviewRoot;
         [SerializeField] TMP_Text reviewSummary;
@@ -54,8 +57,8 @@ namespace LostPetNetwork.UI
             lostToggle.onClick.AddListener(() => SetType(ReportType.Lost));
             foundToggle.onClick.AddListener(() => SetType(ReportType.Found));
             photoBox.onClick.AddListener(OpenCamera);
-            useLocationLink.onClick.AddListener(() =>
-                banner.ShowInfo("Automatic location isn't available in this build yet. Type the street, park or area instead."));
+            pet3dButton.onClick.AddListener(OpenPetCreator);
+            useLocationLink.onClick.AddListener(UseCurrentLocation);
             moreToggle.onClick.AddListener(() => moreSection.SetActive(!moreSection.activeSelf));
             reviewButton.Button.onClick.AddListener(OnReviewClicked);
             editButton.onClick.AddListener(() => ShowReview(false));
@@ -84,11 +87,13 @@ namespace LostPetNetwork.UI
             descriptionField.Input.SetTextWithoutNotify(d.Description ?? string.Empty);
             moreSection.SetActive(!string.IsNullOrEmpty(d.PetName) || !string.IsNullOrEmpty(d.Description));
             RefreshPhoto();
+            pet3dCaption.text = string.IsNullOrEmpty(d.PetAvatarJson) ? "Optional — helps neighbours recognise your pet" : "3D look added — tap to edit";
         }
 
         public void SyncFormToDraft()
         {
             var d = AppSession.Draft;
+            if (d.GeoLabel != null && locationField.Text != d.GeoLabel) { d.Latitude = null; d.Longitude = null; d.GeoLabel = null; }
             d.Species = (PetSpecies)speciesChips.SelectedIndex;
             d.When = (WhenOption)whenChips.SelectedIndex;
             d.LocationText = locationField.Text;
@@ -135,6 +140,32 @@ namespace LostPetNetwork.UI
             if (IsReviewing) { ShowReview(false); return; }
             AppSession.Draft = new ReportDraft();
             if (!manager.Back()) manager.Show(ScreenId.Home);
+        }
+
+        /// <summary>Fills the location with the phone's position and, when possible, its street or area name.</summary>
+        async void UseCurrentLocation()
+        {
+            banner.Hide();
+            banner.ShowInfo("Finding your location…");
+            var found = await CurrentPlace.FindAsync();
+            if (this == null) return;
+            if (!found.Ok) { banner.ShowError(found.Error); return; }
+
+            var d = AppSession.Draft;
+            d.Latitude = found.Fix.Latitude;
+            d.Longitude = found.Fix.Longitude;
+            d.GeoLabel = found.Label;
+            d.LocationText = found.Label;
+            locationField.Input.SetTextWithoutNotify(found.Label);
+            locationField.ClearError();
+            banner.ShowInfo("Location added. You can edit the text if you like.");
+        }
+
+        void OpenPetCreator()
+        {
+            SyncFormToDraft();
+            AppSession.PetLookTarget = PetLookTarget.Report;
+            manager.Push(ScreenId.PetCreator);
         }
 
         void OpenCamera()
@@ -195,6 +226,7 @@ namespace LostPetNetwork.UI
         void ShowReview(bool review)
         {
             reviewRoot.SetActive(review);
+            if (demoNote != null) demoNote.SetActive(ReportServices.Repository.IsDemo);
             formRoot.SetActive(!review);
         }
 
@@ -211,13 +243,17 @@ namespace LostPetNetwork.UI
                 var report = await ReportServices.Repository.CreateAsync(AppSession.Draft, userId, ownerName);
                 if (this == null) return;
                 AppSession.Draft = new ReportDraft();
-                AppSession.FlashMessage = $"Report posted for {report.DisplayName}. Demo data: it is kept only while the app is open.";
+                AppSession.FlashMessage = ReportServices.Repository.IsDemo
+                    ? $"Report posted for {report.DisplayName}. Demo data: it is kept only while the app is open."
+                    : report.PhotoUploadFailed
+                        ? $"Report posted for {report.DisplayName}, but the photo couldn't be uploaded."
+                        : $"Report posted for {report.DisplayName}.";
                 manager.Show(ScreenId.MyReports);
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
-                if (this != null) reviewBanner.ShowError("Couldn't post the report. Please try again.");
+                if (this != null) reviewBanner.ShowError(UiUtil.Describe(e, "Couldn't post the report. Please try again."));
             }
             finally
             {

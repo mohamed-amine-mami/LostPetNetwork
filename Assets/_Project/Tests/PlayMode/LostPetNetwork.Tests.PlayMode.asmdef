@@ -7,7 +7,11 @@
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "LostPetNetwork.AR",
+        "Unity.XR.ARFoundation",
+        "Unity.XR.Management",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

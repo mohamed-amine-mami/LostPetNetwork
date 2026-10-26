@@ -9,7 +9,13 @@ EditorBuildSettings:
     path: Assets/_Project/Scenes/Main.unity
     guid: 311aaee3b626c4d4d9e453e3dcbe1a55
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+    path: Assets/_Project/Scenes/AR/ArPlace.unity
+    guid: b6e91bae240d84b85951586151f36f27
+  - enabled: 1
+    path: Assets/_Project/Scenes/AR/ArCompass.unity
+    guid: 8a80f69448d5d404c9eb8d9e218ef840
   m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 540ec3e508a5f419a89fe7771ce67f3b, type: 2}
+    UnityEditor.XR.ARKit.ARKitSettings: {fileID: 11400000, guid: 6300e47283cff4f329b9d7520b0e8c14, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 281dcae5415104ea4b36f256ca18e5fb, type: 2}

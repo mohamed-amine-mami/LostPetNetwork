@@ -19,14 +19,16 @@ namespace LostPetNetwork.UI
 
         public PetReport Report { get; private set; }
 
-        public void Bind(PetReport report, Action<PetReport> onClick)
+        public void Bind(PetReport report, Action<PetReport> onClick, string distance = null)
         {
             Report = report;
             photo.Set(PhotoLibrary.ForReport(report));
             badge.Set(report);
             nameLabel.text = report.DisplayName;
             detailsLabel.text = string.IsNullOrWhiteSpace(report.Description) ? report.Summary : report.Summary + " · " + Shorten(report.Description, 48);
-            locationLabel.text = $"{report.LocationText} · {report.TimeAgo(DateTime.UtcNow)}";
+            locationLabel.text = string.IsNullOrEmpty(distance)
+                ? $"{report.LocationText} · {report.TimeAgo(DateTime.UtcNow)}"
+                : $"{report.LocationText} · {distance} · {report.TimeAgo(DateTime.UtcNow)}";
             if (demoTag != null) demoTag.SetActive(report.IsDemo);
             var button = GetComponent<Button>();
             button.onClick.RemoveAllListeners();

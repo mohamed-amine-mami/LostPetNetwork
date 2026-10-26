@@ -21,3 +21,11 @@ Thumbs.db
 
 # Unity/Android tool scratch
 .utmp/
+
+# Local config with tokens (never commit; copy Config/MapConfig.local.example.json)
+Assets/_Project/Resources/MapConfig.local.json
+Assets/_Project/Resources/MapConfig.local.json.meta
+
+# Unity scene recovery backups
+Assets/_Recovery/
+Assets/_Recovery.meta

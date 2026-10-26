@@ -52,7 +52,7 @@ namespace LostPetNetwork.UI
             catch (Exception e)
             {
                 Debug.LogException(e);
-                if (this != null) banner.ShowError("Couldn't load your reports.");
+                if (this != null) banner.ShowError(UiUtil.Describe(e, "Couldn't load your reports."));
             }
             finally
             {

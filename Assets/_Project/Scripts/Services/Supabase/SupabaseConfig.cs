@@ -12,5 +12,6 @@ namespace LostPetNetwork.Services.Supabase
 
         public static string AuthUrl => Url + "/auth/v1";
         public static string RestUrl => Url + "/rest/v1";
+        public static string StorageUrl => Url + "/storage/v1";
     }
 }
