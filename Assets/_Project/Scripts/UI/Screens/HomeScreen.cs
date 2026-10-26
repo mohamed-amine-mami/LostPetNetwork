@@ -16,6 +16,7 @@ namespace LostPetNetwork.UI
         [SerializeField] TMP_Text greeting;
         [SerializeField] Button reportLostButton;
         [SerializeField] Button reportFoundButton;
+        [SerializeField] Button sosButton;
         [SerializeField] Button seeAllButton;
         [SerializeField] Transform listRoot;
         [SerializeField] PetCardView cardPrefab;
@@ -27,6 +28,7 @@ namespace LostPetNetwork.UI
         {
             reportLostButton.onClick.AddListener(() => StartReport(ReportType.Lost));
             reportFoundButton.onClick.AddListener(() => StartReport(ReportType.Found));
+            sosButton.onClick.AddListener(() => manager.Push(ScreenId.Sos));
             seeAllButton.onClick.AddListener(() => manager.Show(ScreenId.Explore));
         }
 
@@ -85,7 +87,7 @@ namespace LostPetNetwork.UI
             catch (Exception e)
             {
                 Debug.LogException(e);
-                if (this != null) banner.ShowError("Couldn't load nearby reports.");
+                if (this != null) banner.ShowError(UiUtil.Describe(e, "Couldn't load nearby reports."));
             }
             finally
             {

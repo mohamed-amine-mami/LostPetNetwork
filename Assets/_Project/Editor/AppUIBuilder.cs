@@ -38,8 +38,12 @@ namespace LostPetNetwork.EditorTools
             _ring24 = EnsureRingSprite("ring24", 24, 3);
             EnsureFonts();
             EnsurePhotoLibrary();
+            AvatarAssets.Ensure();
             BuildPrefabs();
             BuildScene();
+            ArSetup.Run();
+            BuildArScenes();
+            EditorSceneManager.OpenScene(ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log("App UI built: " + ScenePath);
         }
@@ -226,6 +230,8 @@ namespace LostPetNetwork.EditorTools
             _cardPrefab = BuildPetCardPrefab();
             _rowPrefab = BuildReportRowPrefab();
             _pinPrefab = BuildMapPinPrefab();
+            _adoptionCardPrefab = BuildAdoptionCardPrefab();
+            _sosRowPrefab = BuildSosRowPrefab();
         }
 
         static T SavePrefab<T>(GameObject root, string name) where T : Component
@@ -382,6 +388,15 @@ namespace LostPetNetwork.EditorTools
                 (ScreenId.Details, BuildDetails(safe, manager)),
                 (ScreenId.MyReports, BuildMyReports(safe, manager)),
                 (ScreenId.Profile, BuildProfile(safe, manager)),
+                (ScreenId.AvatarCreator, BuildAvatarCreator(safe, manager)),
+                (ScreenId.PetCreator, BuildPetCreator(safe, manager)),
+                (ScreenId.Adoption, BuildAdoptionList(safe, manager)),
+                (ScreenId.AdoptionDetails, BuildAdoptionDetails(safe, manager)),
+                (ScreenId.AdopterProfile, BuildAdopterProfile(safe, manager)),
+                (ScreenId.AdoptionCreate, BuildAdoptionCreate(safe, manager)),
+                (ScreenId.Sos, BuildSosHub(safe, manager)),
+                (ScreenId.SosCreate, BuildSosCreate(safe, manager)),
+                (ScreenId.SosDetails, BuildSosDetails(safe, manager)),
             };
             var tabBar = BuildTabBar(safe, manager);
 
@@ -429,7 +444,7 @@ namespace LostPetNetwork.EditorTools
             var view = bar.gameObject.AddComponent<TabBarView>();
             var tabs = new (ScreenId id, string label, string icon)[]
             {
-                (ScreenId.Home, "Home", "home"), (ScreenId.Explore, "Explore", "search"),
+                (ScreenId.Home, "Home", "home"), (ScreenId.Explore, "Explore", "search"), (ScreenId.Adoption, "Adopt", "paw"),
                 (ScreenId.MyReports, "My reports", "reports"), (ScreenId.Profile, "Profile", "user")
             };
             var so = new SerializedObject(view);

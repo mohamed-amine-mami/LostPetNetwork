@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using LostPetNetwork.Services.Auth;
+using LostPetNetwork.Services.Avatar;
 using LostPetNetwork.Services.Profile;
 using LostPetNetwork.Services.Reports;
 using TMPro;
@@ -19,6 +20,9 @@ namespace LostPetNetwork.UI
         [SerializeField] GameObject viewRoot;
         [SerializeField] GameObject editRoot;
         [SerializeField] TMP_Text initials;
+        [SerializeField] Image portrait;
+        [SerializeField] LoadingButton avatarButton;
+        [SerializeField] Button avatarArButton;
         [SerializeField] TMP_Text nameLabel;
         [SerializeField] TMP_Text emailLabel;
         [SerializeField] TMP_Text cityLabel;
@@ -34,12 +38,19 @@ namespace LostPetNetwork.UI
         [SerializeField] LoadingButton signOutButton;
         [SerializeField] GameObject loading;
         [SerializeField] MessageBanner banner;
+        [SerializeField] GameObject statsNote;
 
         bool _busy;
 
         void Awake()
         {
             editButton.onClick.AddListener(BeginEdit);
+            avatarButton.Button.onClick.AddListener(() => manager.Push(ScreenId.AvatarCreator));
+            avatarArButton.onClick.AddListener(() =>
+            {
+                var saved = AvatarServices.Store.Load(AuthService.Instance.UserId);
+                if (saved != null) ArLauncher.OpenAvatar(saved);
+            });
             cancelButton.onClick.AddListener(() => ShowEdit(false));
             saveButton.Button.onClick.AddListener(OnSaveClicked);
             signOutButton.Button.onClick.AddListener(OnSignOutClicked);
@@ -51,6 +62,10 @@ namespace LostPetNetwork.UI
             ShowEdit(false);
             BindProfile(ProfileService.Instance.Cached);
             CountReports();
+            statsNote.SetActive(ReportServices.Repository.IsDemo);
+            ShowAvatar();
+            string flash = AppSession.ConsumeFlash();
+            if (flash != null) banner.ShowInfo(flash);
 
             if (ProfileService.Instance.Cached != null) return;
             loading.SetActive(true);
@@ -70,6 +85,58 @@ namespace LostPetNetwork.UI
             {
                 if (this != null) loading.SetActive(false);
             }
+        }
+
+        /// <summary>Shows the saved 3D avatar's portrait in the header (initials when there is none).</summary>
+        async void ShowAvatar()
+        {
+            var config = AvatarServices.Store.Load(AuthService.Instance.UserId);
+            avatarButton.SetIdleText(config == null ? "Create my 3D avatar" : "Edit my 3D avatar");
+            avatarArButton.gameObject.SetActive(config != null && ArLauncher.CanPlaceAvatar);
+            portrait.gameObject.SetActive(false);
+            initials.gameObject.SetActive(true);
+            if (config == null)
+            {
+                await SyncAvatarAsync(null);
+                return;
+            }
+            await ShowPortrait(config);
+            await SyncAvatarAsync(config);
+        }
+
+        async System.Threading.Tasks.Task ShowPortrait(AvatarConfig config)
+        {
+            try
+            {
+                var sprite = await AvatarPortrait.RenderAsync(config);
+                if (this == null) return;
+                portrait.sprite = sprite;
+                portrait.gameObject.SetActive(sprite != null);
+                initials.gameObject.SetActive(sprite == null);
+            }
+            catch (Exception e) { Debug.LogException(e); }
+        }
+
+        /// <summary>Takes the avatar saved in the account (so it follows the user across devices) and uploads a device-only one.</summary>
+        async System.Threading.Tasks.Task SyncAvatarAsync(AvatarConfig local)
+        {
+            try
+            {
+                var remote = await AvatarSync.FetchAsync();
+                if (this == null || !remote.Ok || remote.Skipped) return;
+                string userId = AuthService.Instance.UserId;
+                if (remote.Config != null && (local == null || !remote.Config.SameAs(local)))
+                {
+                    AvatarServices.Store.Save(userId, remote.Config);
+                    avatarButton.SetIdleText("Edit my 3D avatar");
+                    await ShowPortrait(remote.Config);
+                }
+                else if (remote.Config == null && local != null)
+                {
+                    await AvatarSync.PushAsync(local);
+                }
+            }
+            catch (Exception e) { Debug.LogException(e); }
         }
 
         async void CountReports()

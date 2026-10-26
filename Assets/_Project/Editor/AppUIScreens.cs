@@ -170,6 +170,18 @@ namespace LostPetNetwork.EditorTools
             var found = PrimaryButton(actions, "ReportFoundButton", "Found a pet", Theme.Forest50, Theme.Forest700);
             Le(lost.gameObject, flexW: 1); Le(found.gameObject, flexW: 1);
 
+            var sosCard = Img(content, "SosCard", Theme.TerracottaSoft, _round24);
+            HLayout(sosCard.gameObject, 12, new RectOffset(20, 16, 16, 16), TextAnchor.MiddleLeft, expandWidth: false);
+            var sosButton = sosCard.gameObject.AddComponent<Button>();
+            sosButton.targetGraphic = sosCard;
+            sosButton.transition = Selectable.Transition.None;
+            var sosText = NewRect("Text", sosCard.transform);
+            VLayout(sosText.gameObject, 2);
+            Le(sosText.gameObject, flexW: 1);
+            Txt(sosText, "Title", "Animal in danger?", 18, Theme.TerracottaInk, F.Heading);
+            Txt(sosText, "Sub", "Send an SOS or help a neighbour", 13, Theme.TerracottaInk);
+            IconImg(sosCard.transform, "chevron", Theme.TerracottaInk, 22);
+
             var header = NewRect("SectionHeader", content);
             HLayout(header.gameObject, 8, null, TextAnchor.MiddleLeft);
             var st = Txt(header, "Title", "Recently reported near you", 20, Theme.TextPrimary, F.Heading);
@@ -184,7 +196,7 @@ namespace LostPetNetwork.EditorTools
 
             var screen = root.AddComponent<HomeScreen>();
             Wire(screen, "manager", manager, "greeting", greeting, "reportLostButton", lost.Button,
-                "reportFoundButton", found.Button, "seeAllButton", seeAll, "listRoot", list,
+                "reportFoundButton", found.Button, "sosButton", sosButton, "seeAllButton", seeAll, "listRoot", list,
                 "cardPrefab", _cardPrefab, "loading", loading, "emptyState", empty.root, "banner", banner);
             return root;
         }
@@ -205,9 +217,21 @@ namespace LostPetNetwork.EditorTools
             mapPill.GetComponent<HorizontalLayoutGroup>().spacing = 8;
             IconImg(mapPill, "map", Theme.Forest700, 20);
             Txt(mapPill, "Label", "Map", 13, Theme.Forest700, F.Bold);
+            var (arPill, arBg) = Pill(headerHost.transform, "RadarButton", Theme.Card, new RectOffset(14, 16, 8, 8));
+            arBg.raycastTarget = true;
+            var arOutline = arBg.gameObject.AddComponent<Outline>();
+            arOutline.effectColor = Theme.Border;
+            arOutline.effectDistance = new Vector2(1.2f, 1.2f);
+            var radarButton = arPill.gameObject.AddComponent<Button>();
+            radarButton.targetGraphic = arBg;
+            arPill.GetComponent<HorizontalLayoutGroup>().spacing = 8;
+            IconImg(arPill, "camera", Theme.Forest700, 20);
+            Txt(arPill, "Label", "AR", 13, Theme.Forest700, F.Bold);
+            arPill.gameObject.SetActive(false);
 
             var search = SearchField(content, "Search", "Breed, colour or area");
             var chips = ChipRow(content, "Filters", "All", "Lost", "Found", "Dogs", "Cats");
+            var sortChips = ChipRow(content, "Sort", "Newest", "Nearest", "Within 5 km");
             var count = Txt(content, "Count", "0 reports · Demo data", 12, Theme.TextSecondary, F.Medium);
             var banner = Banner(content);
             var list = NewRect("List", content);
@@ -216,7 +240,7 @@ namespace LostPetNetwork.EditorTools
             var empty = EmptyState(content, "No reports match your search. Try a different word or filter.");
 
             var screen = root.AddComponent<ExploreScreen>();
-            Wire(screen, "manager", manager, "mapButton", mapButton, "search", search, "chips", chips,
+            Wire(screen, "manager", manager, "mapButton", mapButton, "radarButton", radarButton, "search", search, "chips", chips, "sortChips", sortChips,
                 "countLabel", count, "listRoot", list, "cardPrefab", _cardPrefab, "loading", loading,
                 "emptyState", empty.root, "banner", banner);
             return root;
@@ -246,6 +270,25 @@ namespace LostPetNetwork.EditorTools
             Shape(mapArt, "Road", null, road, new Vector2(0.64f, 0.5f), new Vector2(0.03f, 1.2f), -6);
             Shape(mapArt, "Road", null, road, new Vector2(0.86f, 0.5f), new Vector2(0.025f, 1.2f), 14);
 
+            // Live map (Mapbox tiles). Shown instead of the stylised art when a map token is configured.
+            var live = Img(back.transform, "MapLive", new Color(0.93f, 0.91f, 0.86f, 1f));
+            Stretch(live.rectTransform);
+            var tileLayer = NewRect("Tiles", live.transform);
+            Stretch(tileLayer);
+            var mapView = live.gameObject.AddComponent<MapView>();
+            Wire(mapView, "tileLayer", tileLayer);
+            live.gameObject.SetActive(false);
+
+            var overlay = NewRect("Overlay", root);
+            Stretch(overlay);
+            var youDot = Img(overlay, "YouMarker", new Color(0.23f, 0.43f, 0.65f, 1f), _circle);
+            youDot.raycastTarget = false;
+            Anchor(youDot.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(20, 20));
+            var youRing = Img(youDot.transform, "Ring", Color.white, _ring24);
+            youRing.raycastTarget = false;
+            Stretch(youRing.rectTransform);
+            youDot.gameObject.SetActive(false);
+
             var pinLayer = NewRect("Pins", root);
             Stretch(pinLayer);
 
@@ -261,7 +304,21 @@ namespace LostPetNetwork.EditorTools
             var chips = ChipRow(top, "Filters", "All", "Lost", "Found");
             var noteHost = LeftAligned(top, "NoteRow");
             var (note, _) = Pill(noteHost.transform, "Note", new Color(1f, 0.99f, 0.97f, 0.92f), new RectOffset(12, 12, 5, 5));
-            Txt(note, "Label", "Stylised map preview · demo locations", 11, Theme.TextSecondary, F.Medium);
+            var noteLabel = Txt(note, "Label", "Stylised map preview · demo locations", 11, Theme.TextSecondary, F.Medium);
+
+            var liveControls = NewRect("LiveControls", root);
+            Stretch(liveControls);
+            var zoomColumn = NewRect("Zoom", liveControls);
+            Anchor(zoomColumn, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-16, 20), new Vector2(48, 0));
+            VLayout(zoomColumn.gameObject, 10, null, TextAnchor.MiddleCenter, expandWidth: false);
+            zoomColumn.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var zoomIn = CircleIconButton(zoomColumn, "ZoomInButton", "plus", 48);
+            var zoomOut = CircleTextButton(zoomColumn, "ZoomOutButton", "−", 48);
+            var locate = CircleIconButton(zoomColumn, "LocateButton", "locate", 48);
+            var attribution = Txt(liveControls, "Attribution", "© Mapbox © OpenStreetMap", 10, Theme.TextSecondary, F.Medium);
+            attribution.raycastTarget = false;
+            Anchor(attribution.rectTransform, new Vector2(0, 0), new Vector2(0, 0), new Vector2(10, 88), new Vector2(220, 14));
+            liveControls.gameObject.SetActive(false);
 
             var rowHost = NewRect("SelectedCardHost", root);
             rowHost.anchorMin = new Vector2(0, 0); rowHost.anchorMax = new Vector2(1, 0); rowHost.pivot = new Vector2(0.5f, 0);
@@ -283,8 +340,25 @@ namespace LostPetNetwork.EditorTools
             var screen = root.gameObject.AddComponent<MapScreen>();
             Wire(screen, "manager", manager, "closeButton", close, "search", search, "chips", chips,
                 "pinLayer", pinLayer, "pinPrefab", _pinPrefab, "selectedCard", card,
-                "emptyState", empty.root, "loading", loading, "banner", banner);
+                "emptyState", empty.root, "loading", loading, "banner", banner,
+                "mapView", mapView, "liveMapRoot", live.gameObject, "liveControls", liveControls.gameObject,
+                "stylisedArt", mapArt.gameObject, "noteLabel", noteLabel, "zoomInButton", zoomIn,
+                "zoomOutButton", zoomOut, "locateButton", locate, "youMarker", youDot.rectTransform);
             return root.gameObject;
+        }
+
+        static Button CircleTextButton(Transform parent, string name, string text, float size = 44)
+        {
+            var img = Img(parent, name, Theme.Card, _circle);
+            Le(img.gameObject, prefH: size, prefW: size);
+            var outline = img.gameObject.AddComponent<Outline>();
+            outline.effectColor = Theme.Border;
+            outline.effectDistance = new Vector2(1f, 1f);
+            var b = img.gameObject.AddComponent<Button>();
+            b.targetGraphic = img;
+            var label = Txt(img.transform, "Label", text, 26, Theme.TextPrimary, F.Medium, TextAlignmentOptions.Center);
+            Stretch(label.rectTransform);
+            return b;
         }
 
         static void Shape(RectTransform parent, string name, Sprite sprite, Color color, Vector2 center, Vector2 size, float rotation)
@@ -349,6 +423,20 @@ namespace LostPetNetwork.EditorTools
             CoverSlot(photoBox.rectTransform, out var photoPreview);
             photoPreview.gameObject.SetActive(false);
 
+            var pet3d = Img(content, "Pet3DBox", Theme.Card, _round16);
+            HLayout(pet3d.gameObject, 12, new RectOffset(16, 16, 14, 14), TextAnchor.MiddleLeft, expandWidth: false);
+            var pet3dOutline = pet3d.gameObject.AddComponent<Outline>();
+            pet3dOutline.effectColor = Theme.Border; pet3dOutline.effectDistance = new Vector2(1.2f, 1.2f);
+            var pet3dButton = pet3d.gameObject.AddComponent<Button>();
+            pet3dButton.targetGraphic = pet3d;
+            pet3dButton.transition = Selectable.Transition.None;
+            var pet3dText = NewRect("Text", pet3d.transform);
+            VLayout(pet3dText.gameObject, 2);
+            Le(pet3dText.gameObject, flexW: 1);
+            Txt(pet3dText, "Title", "Design a 3D look", 15, Theme.TextPrimary, F.Medium);
+            var pet3dCaption = Txt(pet3dText, "Caption", "Optional — helps neighbours recognise your pet", 12, Theme.TextSecondary);
+            IconImg(pet3d.transform, "paw", Theme.Forest700, 22);
+
             Txt(content, "SpeciesLabel", "What kind of pet?", 13, Theme.TextPrimary, F.Bold);
             var species = ChipRow(content, "SpeciesChips", "Dog", "Cat", "Bird", "Other");
             var location = TextField(content, "Location", "Where was it last seen?", "Street, park or neighbourhood", TMP_InputField.ContentType.Standard);
@@ -403,7 +491,7 @@ namespace LostPetNetwork.EditorTools
             summary.richText = true;
             summary.lineSpacing = 8;
             var reviewBanner = Banner(rContent);
-            Txt(rContent, "Demo", "Demo mode: your report is kept only while the app is open. Saving reports to Supabase is not available yet.", 12, Theme.TextSecondary);
+            var demoNote = Txt(rContent, "Demo", "Demo mode: your report is kept only while the app is open.", 12, Theme.TextSecondary);
             var rBar = Img(reviewRoot.transform, "BottomBar", Theme.Cream);
             rBar.rectTransform.anchorMin = new Vector2(0, 0); rBar.rectTransform.anchorMax = new Vector2(1, 0);
             rBar.rectTransform.pivot = new Vector2(0.5f, 0); rBar.rectTransform.offsetMin = Vector2.zero; rBar.rectTransform.offsetMax = new Vector2(0, 150);
@@ -421,7 +509,8 @@ namespace LostPetNetwork.EditorTools
                 "moreToggle", moreButton, "moreSection", moreSection.gameObject, "nameField", nameField,
                 "descriptionField", descField, "reviewButton", review, "banner", banner,
                 "reviewRoot", reviewRoot, "reviewSummary", summary, "reviewPhoto", reviewPhoto,
-                "postButton", post, "editButton", edit, "reviewBanner", reviewBanner);
+                "postButton", post, "editButton", edit, "reviewBanner", reviewBanner,
+                "pet3dButton", pet3dButton, "pet3dCaption", pet3dCaption, "demoNote", demoNote.gameObject);
             // back button on the review header behaves like "Edit"
             WireBackToEdit(screen, rBack);
             return container.gameObject;
@@ -557,6 +646,15 @@ namespace LostPetNetwork.EditorTools
             var badge = Badge(titleRow);
             var summary = Txt(body, "Summary", "Golden Retriever", 15, Theme.TextSecondary);
 
+            var petCard = Img(body, "Pet3DCard", Theme.Forest50, _round24);
+            VLayout(petCard.gameObject, 4, new RectOffset(8, 8, 8, 12));
+            var petStage = NewRect("Preview", petCard.transform);
+            Le(petStage.gameObject, prefH: 220);
+            petStage.gameObject.AddComponent<RawImage>();
+            var petPreview = petStage.gameObject.AddComponent<Preview3D>();
+            var petCaption = Txt(petCard.transform, "Caption", "", 12, Theme.TextSecondary, F.Medium, TextAlignmentOptions.Center);
+            petCard.gameObject.SetActive(false);
+
             var info = Img(body, "InfoCard", Theme.Card, _round16);
             VLayout(info.gameObject, 0, new RectOffset(0, 0, 4, 4));
             var infoOutline = info.gameObject.AddComponent<Outline>();
@@ -576,6 +674,18 @@ namespace LostPetNetwork.EditorTools
             VLayout(rCol.gameObject, 0);
             var rName = Txt(rCol, "Name", "Reported by", 15, Theme.TextPrimary, F.Medium);
             var rMeta = Txt(rCol, "Meta", "", 12, Theme.TextSecondary);
+            var matchCard = Img(body, "MatchSection", Theme.Card, _round24);
+            VLayout(matchCard.gameObject, 10, new RectOffset(16, 16, 16, 16));
+            var matchOutline = matchCard.gameObject.AddComponent<Outline>();
+            matchOutline.effectColor = Theme.Border; matchOutline.effectDistance = new Vector2(1.2f, 1.2f);
+            Txt(matchCard.transform, "Title", "Possible matches", 18, Theme.TextPrimary, F.Heading);
+            Txt(matchCard.transform, "Info", "An AI helper compares your photo with nearby reports. The photos are sent to Google's Gemini to be compared.", 12, Theme.TextSecondary);
+            var findMatches = PrimaryButton(matchCard.transform, "FindMatchesButton", "Find possible matches", Theme.Forest50, Theme.Forest700);
+            var matchResults = NewRect("Results", matchCard.transform);
+            VLayout(matchResults.gameObject, 10);
+            var matchNote = Txt(matchCard.transform, "Note", "", 12, Theme.TextSecondary);
+            matchCard.gameObject.SetActive(false);
+
             var banner = Banner(body);
 
             var back = CircleIconButton(container, "BackButton", "back");
@@ -594,7 +704,9 @@ namespace LostPetNetwork.EditorTools
                 "nameLabel", nameLabel, "summaryLabel", summary, "locationValue", locValue, "whenValue", whenValue,
                 "distanceValue", distValue, "descriptionLabel", description, "reporterName", rName,
                 "reporterMeta", rMeta, "reporterInitials", initials, "actionButton", action,
-                "actionHint", hint, "banner", banner);
+                "actionHint", hint, "banner", banner, "petCard", petCard.gameObject, "petPreview", petPreview,
+                "petCaption", petCaption, "matchSection", matchCard.gameObject, "findMatchesButton", findMatches,
+                "matchNote", matchNote, "matchResults", matchResults, "matchRowPrefab", _rowPrefab);
             return container.gameObject;
         }
 
@@ -647,8 +759,14 @@ namespace LostPetNetwork.EditorTools
             HLayout(head.gameObject, 16, null, TextAnchor.MiddleLeft);
             var avatar = Img(head, "Avatar", Theme.Forest100, _circle);
             Le(avatar.gameObject, prefH: 72, prefW: 72);
+            avatar.gameObject.AddComponent<Mask>().showMaskGraphic = true;
             var initials = Txt(avatar.transform, "Initials", "?", 24, Theme.Forest900, F.Heading, TextAlignmentOptions.Center);
             Stretch(initials.rectTransform);
+            var portrait = Img(avatar.transform, "Portrait", Color.white);
+            portrait.raycastTarget = false;
+            portrait.preserveAspect = true;
+            Stretch(portrait.rectTransform);
+            portrait.gameObject.SetActive(false);
             var info = NewRect("Info", head);
             VLayout(info.gameObject, 2);
             Le(info.gameObject, flexW: 1);
@@ -661,8 +779,11 @@ namespace LostPetNetwork.EditorTools
             HLayout(stats.gameObject, 12, null, TextAnchor.MiddleCenter, expandWidth: true);
             var reportsCount = StatCard(stats, "Reports");
             var reunitedCount = StatCard(stats, "Reunited");
-            Txt(view, "StatsNote", "Report counters use demo data for now.", 12, Theme.TextSecondary);
+            var statsNote = Txt(view, "StatsNote", "Report counters use demo data for now.", 12, Theme.TextSecondary);
 
+            var avatarButton = PrimaryButton(view, "AvatarButton", "Create my 3D avatar", Theme.Forest700, Theme.OnBrand);
+            var avatarAr = PrimaryButton(view, "AvatarArButton", "See my avatar in AR", Theme.Forest50, Theme.Forest700);
+            avatarAr.gameObject.SetActive(false);
             var edit = PrimaryButton(view, "EditButton", "Edit profile", Theme.Forest50, Theme.Forest700);
 
             var list = Img(view, "Settings", Theme.Card, _round24);
@@ -707,10 +828,11 @@ namespace LostPetNetwork.EditorTools
 
             var screen = root.AddComponent<ProfileScreen>();
             Wire(screen, "manager", manager, "viewRoot", view.gameObject, "editRoot", editRoot.gameObject,
-                "initials", initials, "nameLabel", nameLabel, "emailLabel", emailLabel, "cityLabel", cityLabel,
+                "initials", initials, "portrait", portrait, "avatarButton", avatarButton, "avatarArButton", avatarAr.Button, "nameLabel", nameLabel, "emailLabel", emailLabel, "cityLabel", cityLabel,
                 "memberLabel", memberLabel, "reportsCount", reportsCount, "reunitedCount", reunitedCount,
                 "editButton", edit.Button, "nameField", nameField, "cityField", cityField, "phoneField", phoneField,
-                "saveButton", save, "cancelButton", cancel, "signOutButton", signOut, "loading", loading, "banner", banner);
+                "saveButton", save, "cancelButton", cancel, "signOutButton", signOut, "loading", loading, "banner", banner,
+                "statsNote", statsNote.gameObject);
             return root;
         }
 

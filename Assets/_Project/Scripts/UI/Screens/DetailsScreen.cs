@@ -1,5 +1,8 @@
 using System;
+using System.Linq;
+using LostPetNetwork.Services.Ai;
 using LostPetNetwork.Services.Auth;
+using LostPetNetwork.Services.Pets;
 using LostPetNetwork.Services.Reports;
 using TMPro;
 using UnityEngine;
@@ -26,11 +29,24 @@ namespace LostPetNetwork.UI
         [SerializeField] LoadingButton actionButton;
         [SerializeField] TMP_Text actionHint;
         [SerializeField] MessageBanner banner;
+        [SerializeField] GameObject petCard;
+        [SerializeField] Preview3D petPreview;
+        [SerializeField] TMP_Text petCaption;
+        [SerializeField] GameObject matchSection;
+        [SerializeField] LoadingButton findMatchesButton;
+        [SerializeField] TMP_Text matchNote;
+        [SerializeField] Transform matchResults;
+        [SerializeField] ReportRowView matchRowPrefab;
 
         PetReport _report;
         bool _busy;
 
         public enum NextAction { None, Contact, MarkReunited }
+
+        /// <summary>The AI helper is offered to the owner of an active report that has a photo, on real (non-demo) data.</summary>
+        public static bool CanFindMatches(PetReport report, string currentUserId, bool demoData) =>
+            report != null && !demoData && report.Status == ReportStatus.Active && report.OwnerUserId == currentUserId &&
+            (!string.IsNullOrEmpty(report.PhotoPath) || (report.PhotoBytes != null && report.PhotoBytes.Length > 0));
 
         /// <summary>Which primary action applies to the current user (pure logic, covered by tests).</summary>
         public static NextAction ActionFor(PetReport report, string currentUserId)
@@ -43,6 +59,9 @@ namespace LostPetNetwork.UI
         {
             backButton.onClick.AddListener(() => { if (!manager.Back()) manager.Show(ScreenId.Explore); });
             actionButton.Button.onClick.AddListener(OnActionClicked);
+            findMatchesButton.Button.onClick.AddListener(OnFindMatches);
+            petPreview.DefaultYaw = PetFactory.DefaultYaw;
+            petPreview.TiltToRotate = true;
         }
 
         void OnEnable()
@@ -58,6 +77,50 @@ namespace LostPetNetwork.UI
             Bind();
         }
 
+        async void OnFindMatches()
+        {
+            if (_busy || _report == null) return;
+            _busy = true;
+            findMatchesButton.SetLoading(true);
+            banner.Hide();
+            UiUtil.ClearChildren(matchResults);
+            matchNote.text = string.Empty;
+            try
+            {
+                var result = await AiMatchService.FindAsync(_report.Id);
+                if (this == null) return;
+                if (!result.Ok) { banner.ShowInfo(result.Message); return; }
+                if (result.Matches.Count == 0) { matchNote.text = "No similar animals were found nearby yet. We'll keep your report visible to neighbours."; return; }
+
+                foreach (var match in result.Matches.Take(5))
+                {
+                    var other = await ReportServices.Repository.GetAsync(match.ReportId);
+                    if (this == null) return;
+                    if (other == null) continue;
+                    Instantiate(matchRowPrefab, matchResults).Bind(other, OpenOther, $"{match.Score}% similar · {match.Reason}");
+                }
+                matchNote.text = "Suggestions only. Check the photos and talk to the person before you decide.";
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                if (this != null) banner.ShowError(UiUtil.Describe(e, "Couldn't search for matches. Please try again."));
+            }
+            finally
+            {
+                _busy = false;
+                if (this != null) findMatchesButton.SetLoading(false);
+            }
+        }
+
+        void OpenOther(PetReport other)
+        {
+            _report = other;
+            AppSession.SelectedReport = other;
+            banner.Hide();
+            Bind();
+        }
+
         void Bind()
         {
             var r = _report;
@@ -67,7 +130,13 @@ namespace LostPetNetwork.UI
             summaryLabel.text = r.Summary;
             locationValue.text = r.LocationText;
             whenValue.text = r.TimeAgo(DateTime.UtcNow);
-            distanceValue.text = r.DistanceKm > 0 ? $"{r.DistanceKm:0.#} km from you (sample value)" : "Your area";
+            float km = r.DistanceFromKm(LostPetNetwork.Services.Sensors.SensorHub.Location.Latest, out bool realDistance);
+            distanceValue.text = km > 0 ? $"{km:0.#} km from you{(realDistance ? "" : " (sample value)")}" : "Your area";
+            BindPet3D(r);
+            bool offerMatches = CanFindMatches(r, AuthService.Instance.UserId, ReportServices.Repository.IsDemo);
+            matchSection.SetActive(offerMatches);
+            UiUtil.ClearChildren(matchResults);
+            matchNote.text = string.Empty;
             descriptionLabel.text = string.IsNullOrWhiteSpace(r.Description) ? "No extra details were added." : r.Description;
             reporterName.text = $"Reported by {r.OwnerName}";
             reporterMeta.text = $"{r.ContactRequests} contact request{(r.ContactRequests == 1 ? "" : "s")}";
@@ -79,7 +148,9 @@ namespace LostPetNetwork.UI
                 case NextAction.Contact:
                     actionButton.gameObject.SetActive(true);
                     actionButton.SetIdleText(r.Type == ReportType.Lost ? $"I've seen {r.DisplayName}" : "This is my pet");
-                    actionHint.text = "Demo: contact requests are only recorded on this device for now.";
+                    actionHint.text = ReportServices.Repository.IsDemo
+                        ? "Demo: contact requests are only recorded on this device for now."
+                        : "The owner will see that you asked about this report.";
                     break;
                 case NextAction.MarkReunited:
                     actionButton.gameObject.SetActive(true);
@@ -91,6 +162,18 @@ namespace LostPetNetwork.UI
                     actionHint.text = r.Status == ReportStatus.Reunited ? "This pet is back home. Thank you, neighbours!" : string.Empty;
                     break;
             }
+        }
+
+        void BindPet3D(PetReport r)
+        {
+            bool has = PetConfig.TryParse(r.PetAvatarJson, out var config);
+            petCard.SetActive(has);
+            if (!has) return;
+            petPreview.ResetView();
+            petPreview.SetContent(PetFactory.Build(config), PetFactory.FrameCenter, PetFactory.FrameRadius);
+            petCaption.text = r.IsDemo && r.OwnerUserId != AuthService.Instance.UserId
+                ? "Illustrative 3D look · drag or tilt your phone to turn"
+                : "3D look · drag or tilt your phone to turn";
         }
 
         static string Initials(string name)
@@ -117,13 +200,13 @@ namespace LostPetNetwork.UI
                         if (this == null) return;
                         if (updated != null) { _report = updated; AppSession.SelectedReport = updated; }
                         Bind();
-                        banner.ShowInfo("Marked as reunited. Welcome home! (demo data)");
+                        banner.ShowInfo(ReportServices.Repository.IsDemo ? "Marked as reunited. Welcome home! (demo data)" : "Marked as reunited. Welcome home!");
                         break;
                     case NextAction.Contact:
                         bool sent = await ReportServices.Repository.RequestContactAsync(_report.Id, AuthService.Instance.UserId);
                         if (this == null) return;
                         Bind();
-                        if (sent) banner.ShowInfo("Request recorded on this device (demo). Sending to the owner needs the backend.");
+                        if (sent) banner.ShowInfo(ReportServices.Repository.IsDemo ? "Request recorded on this device (demo). Sending to the owner needs the backend." : "Request sent. The owner can see it in their report.");
                         else banner.ShowInfo("You've already sent a request for this report.");
                         break;
                 }

@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using LostPetNetwork.Services.Adoption;
 using LostPetNetwork.Services.Auth;
+using LostPetNetwork.Services.Reports;
+using LostPetNetwork.Services.Sos;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace LostPetNetwork.UI
 {
-    public enum ScreenId { Splash, SignIn, SignUp, ResetPassword, Home, Explore, Map, Report, Camera, Details, MyReports, Profile }
+    public enum ScreenId { Splash, SignIn, SignUp, ResetPassword, Home, Explore, Map, Report, Camera, Details, MyReports, Profile, AvatarCreator, PetCreator, Adoption, AdoptionDetails, AdopterProfile, AdoptionCreate, Sos, SosCreate, SosDetails }
 
     [Serializable]
     public class ScreenEntry
@@ -26,14 +29,19 @@ namespace LostPetNetwork.UI
 
         static readonly HashSet<ScreenId> TabScreens = new HashSet<ScreenId>
         {
-            ScreenId.Home, ScreenId.Explore, ScreenId.Map, ScreenId.MyReports, ScreenId.Profile
+            ScreenId.Home, ScreenId.Explore, ScreenId.Map, ScreenId.MyReports, ScreenId.Profile, ScreenId.Adoption
         };
 
         static readonly HashSet<ScreenId> SignedInScreens = new HashSet<ScreenId>
         {
             ScreenId.Home, ScreenId.Explore, ScreenId.Map, ScreenId.Report, ScreenId.Camera,
-            ScreenId.Details, ScreenId.MyReports, ScreenId.Profile
+            ScreenId.Details, ScreenId.MyReports, ScreenId.Profile, ScreenId.AvatarCreator, ScreenId.PetCreator,
+            ScreenId.Adoption, ScreenId.AdoptionDetails, ScreenId.AdopterProfile, ScreenId.AdoptionCreate,
+            ScreenId.Sos, ScreenId.SosCreate, ScreenId.SosDetails
         };
+
+        /// <summary>True while a full-screen AR scene is open: the system Back button and shakes belong to it.</summary>
+        public static bool InputBlocked { get; set; }
 
         readonly Stack<ScreenId> _history = new Stack<ScreenId>();
 
@@ -43,6 +51,7 @@ namespace LostPetNetwork.UI
         async void Start()
         {
             Activate(ScreenId.Splash);
+            ShakeToSos.Attach(this);
             AuthService.Instance.SessionChanged += OnSessionChanged;
             try { await AuthService.Instance.RestoreSessionAsync(); }
             catch (Exception e) { Debug.LogException(e); }
@@ -61,6 +70,7 @@ namespace LostPetNetwork.UI
         void Update()
         {
             // Android's system Back button arrives as Escape in the Input System.
+            if (InputBlocked) return;
             var keyboard = Keyboard.current;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) HandleSystemBack();
         }
@@ -70,10 +80,16 @@ namespace LostPetNetwork.UI
             if (this == null) return;
             if (session != null)
             {
+                ReportServices.UseSupabase();
+                AdoptionServices.UseSupabase();
+                SosServices.UseSupabase();
                 if (!SignedInScreens.Contains(Current)) Show(ScreenId.Home);
             }
             else
             {
+                ReportServices.UseDemo();
+                AdoptionServices.UseDemo();
+                SosServices.UseDemo();
                 AppSession.Reset();
                 Show(ScreenId.SignIn);
             }
@@ -113,6 +129,15 @@ namespace LostPetNetwork.UI
                 case ScreenId.Profile:
                 case ScreenId.Map:
                 case ScreenId.Report: Show(ScreenId.Home); break;
+                case ScreenId.AvatarCreator: Show(ScreenId.Profile); break;
+                case ScreenId.PetCreator: Show(AppSession.PetLookTarget == PetLookTarget.Adoption ? ScreenId.AdoptionCreate : ScreenId.Report); break;
+                case ScreenId.AdoptionDetails:
+                case ScreenId.AdopterProfile:
+                case ScreenId.AdoptionCreate: Show(ScreenId.Adoption); break;
+                case ScreenId.Adoption: Show(ScreenId.Home); break;
+                case ScreenId.Sos: Show(ScreenId.Home); break;
+                case ScreenId.SosCreate:
+                case ScreenId.SosDetails: Show(ScreenId.Sos); break;
             }
         }
 

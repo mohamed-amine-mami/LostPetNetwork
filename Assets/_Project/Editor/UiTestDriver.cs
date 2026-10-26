@@ -99,6 +99,24 @@ namespace LostPetNetwork.EditorTools
             return "saved " + path;
         }
 
+        /// <summary>Shows an avatar look (JSON) in the open creator screen.</summary>
+        public static string ShowAvatar(string json)
+        {
+            var screen = Object.FindAnyObjectByType<LostPetNetwork.UI.AvatarCreatorScreen>();
+            if (!LostPetNetwork.Services.Avatar.AvatarConfig.TryParse(json, out var config)) return "bad json";
+            screen.SetConfig(config);
+            return "shown";
+        }
+
+        /// <summary>Shows a pet look (JSON) in the open pet creator screen.</summary>
+        public static string ShowPet(string json)
+        {
+            var screen = Object.FindAnyObjectByType<LostPetNetwork.UI.PetCreatorScreen>();
+            if (!LostPetNetwork.Services.Pets.PetConfig.TryParse(json, out var config)) return "bad json";
+            screen.SetConfig(config);
+            return "shown";
+        }
+
         public static string Current() => Object.FindAnyObjectByType<LostPetNetwork.UI.ScreenManager>().Current.ToString();
     }
 }

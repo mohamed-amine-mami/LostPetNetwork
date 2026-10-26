@@ -460,8 +460,8 @@ PlayerSettings:
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
   cameraUsageDescription: LostPetNetwork uses the camera so you can add a photo of a lost or found pet to your report.
-  locationUsageDescription: 
-  microphoneUsageDescription: 
+  locationUsageDescription: LostPetNetwork uses your location to show pets and alerts near you.
+  microphoneUsageDescription: LostPetNetwork records a short voice note when you send an SOS.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 12.0
   switchNMETAOverride: 
@@ -720,7 +720,8 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   webProgressiveAssetLoading: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    iPhone: UNITY_XR_ARKIT_LOADER_ENABLED
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
