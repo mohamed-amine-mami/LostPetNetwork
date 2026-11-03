@@ -1,10 +1,27 @@
 using System;
+using UnityEngine;
 
 namespace LostPetNetwork.Services.Sensors
 {
     /// <summary>Maths for the compass overlays: where a target at a given bearing appears on a camera view.</summary>
     public static class CompassMath
     {
+        /// <summary>
+        /// Compass heading (degrees clockwise from magnetic north, 0 to 360) of the direction the phone's back camera
+        /// faces, from Android's rotation-vector sensor. Returns null when the camera points straight up or down,
+        /// where the heading is undefined.
+        /// </summary>
+        public static float? HeadingFromRotationVector(float x, float y, float z, float w)
+        {
+            // Rotation matrix entries that map the phone's axes to east, north, up (Android's convention).
+            float r2 = 2f * (x * z + y * w);
+            float r5 = 2f * (y * z - x * w);
+            float east = -r2, north = -r5; // the back camera looks along the phone's -Z axis
+            if (east * east + north * north < 0.01f) return null;
+            float degrees = Mathf.Atan2(east, north) * Mathf.Rad2Deg;
+            return (degrees + 360f) % 360f;
+        }
+
         /// <summary>True when a target at this relative bearing (degrees, right is positive) is inside the camera's horizontal view.</summary>
         public static bool InView(double relativeBearing, double horizontalFovDegrees) =>
             Math.Abs(relativeBearing) <= horizontalFovDegrees / 2.0;

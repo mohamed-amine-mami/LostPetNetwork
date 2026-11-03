@@ -185,6 +185,62 @@ namespace LostPetNetwork.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Playing_a_voice_note_makes_sure_the_scene_can_output_sound()
+        {
+            yield return Boot();
+            var samples = new float[MicRecorder.SampleRate];
+            for (int i = 0; i < samples.Length; i++) samples[i] = 0.4f * Mathf.Sin(i * 0.1f);
+            byte[] wav = WavCodec.Encode(samples, MicRecorder.SampleRate);
+
+            Assert.IsTrue(VoicePlayback.Play(wav), "a valid voice note starts playing");
+            Assert.IsTrue(VoicePlayback.CanOutputSound, "without an AudioListener the phone stays silent");
+            VoicePlayback.Stop();
+            Assert.IsFalse(VoicePlayback.Play(new byte[] { 1, 2, 3 }), "garbage is refused instead of failing silently");
+        }
+
+        [UnityTest]
+        public IEnumerator Dictating_fills_the_note_after_what_was_typed_and_the_language_can_be_changed()
+        {
+            yield return Boot();
+            _manager.Show(ScreenId.SosCreate);
+            yield return Frames(4);
+            Assert.IsFalse(Active("SosCreate/Viewport/Content/Form/DictateRow"), "no speech recogniser here, so no dictate button");
+
+            string languageUsed = null;
+            SpeechToText.Override = (language, partial, final, error) =>
+            {
+                languageUsed = language;
+                partial("cat under");
+                final("cat under a car");
+            };
+            try
+            {
+                _manager.Show(ScreenId.Home);
+                yield return Frames(2);
+                _manager.Show(ScreenId.SosCreate);
+                yield return Frames(4);
+                Assert.IsTrue(Active("SosCreate/Viewport/Content/Form/DictateRow"));
+
+                Find("SosCreate/Viewport/Content/Form/Note/Box").GetComponent<TMPro.TMP_InputField>().text = "Injured";
+                Click("SosCreate/Viewport/Content/Form/DictateRow/DictateLanguageButton");
+                Assert.AreEqual("Language: Arabic", Label("SosCreate/Viewport/Content/Form/DictateRow/DictateLanguageButton"));
+
+                Click("SosCreate/Viewport/Content/Form/DictateRow/DictateButton");
+                yield return Frames(4);
+                Assert.AreEqual("ar-TN", languageUsed);
+                Assert.AreEqual("Injured cat under a car", Find("SosCreate/Viewport/Content/Form/Note/Box").GetComponent<TMPro.TMP_InputField>().text);
+                Assert.AreEqual("Dictate the note", Label("SosCreate/Viewport/Content/Form/DictateRow/DictateButton"));
+
+                SpeechToText.Override = (language, partial, final, error) => error(SpeechToText.DescribeError("7"));
+                Click("SosCreate/Viewport/Content/Form/DictateRow/DictateButton");
+                yield return Frames(3);
+                Assert.IsTrue(Active("SosCreate/Viewport/Content/Banner") || _manager.Current == ScreenId.SosCreate);
+                Assert.AreEqual("Injured cat under a car", Find("SosCreate/Viewport/Content/Form/Note/Box").GetComponent<TMPro.TMP_InputField>().text, "a failed dictation keeps the note");
+            }
+            finally { SpeechToText.Override = null; }
+        }
+
+        [UnityTest]
         public IEnumerator Shaking_opens_the_SOS_form_only_when_signed_in_and_not_already_there()
         {
             yield return Boot();

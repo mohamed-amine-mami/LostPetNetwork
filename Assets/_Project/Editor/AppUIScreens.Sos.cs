@@ -97,6 +97,12 @@ namespace LostPetNetwork.EditorTools
 
             var note = TextField(form, "Note", "What's happening? (optional)", "Injured, trapped, abandoned… what should rescuers know?", TMP_InputField.ContentType.Standard, multiline: true);
 
+            var dictateRow = NewRect("DictateRow", form);
+            HLayout(dictateRow.gameObject, 16, null, TextAnchor.MiddleLeft);
+            var dictate = LinkButton(dictateRow, "DictateButton", "Dictate the note", TextAlignmentOptions.Left);
+            var dictateLanguage = LinkButton(dictateRow, "DictateLanguageButton", "Language: phone", TextAlignmentOptions.Left);
+            dictateRow.gameObject.SetActive(false); // shown only when the phone can recognise speech
+
             var voice = Img(form, "VoiceCard", Theme.Card, _round16);
             VLayout(voice.gameObject, 8, new RectOffset(16, 16, 14, 14));
             var voiceOutline = voice.gameObject.AddComponent<Outline>();
@@ -134,7 +140,8 @@ namespace LostPetNetwork.EditorTools
                 "locationLabel", locLabel, "refreshLocationButton", refresh, "noteField", note, "recordButton", record,
                 "recordLabel", recordLabel, "recordHint", recordHint, "playButton", play, "removeVoiceButton", removeVoice,
                 "sendButton", send, "sentTitle", sentTitle, "sentText", sentText, "resolveButton", resolve,
-                "seeAlertsButton", seeAlerts, "banner", banner);
+                "seeAlertsButton", seeAlerts, "banner", banner,
+                "dictateRow", dictateRow.gameObject, "dictateButton", dictate, "dictateLanguageButton", dictateLanguage);
             return root;
         }
 

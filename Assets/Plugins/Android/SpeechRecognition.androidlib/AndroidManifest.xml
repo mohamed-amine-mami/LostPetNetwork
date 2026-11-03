@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.lostpetnetwork.speech">
+    <!-- Android 11 and later hide other apps unless they are listed here; without this the phone's speech
+         recogniser is invisible and SpeechRecognizer.isRecognitionAvailable() returns false. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+</manifest>

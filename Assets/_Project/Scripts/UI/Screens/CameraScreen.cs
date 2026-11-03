@@ -10,7 +10,7 @@ namespace LostPetNetwork.UI
 {
     /// <summary>
     /// Takes a photo with the device camera (WebCamTexture) and stores it in the report draft as a JPEG.
-    /// Choosing from the gallery needs a native picker plugin and is NOT implemented yet.
+    /// Or lets the user choose a photo from the gallery (see GalleryPicker).
     /// </summary>
     public class CameraScreen : MonoBehaviour
     {
@@ -40,8 +40,7 @@ namespace LostPetNetwork.UI
             closeButton.onClick.AddListener(Close);
             shutterButton.onClick.AddListener(Capture);
             flipButton.onClick.AddListener(Flip);
-            galleryButton.onClick.AddListener(() =>
-                ShowStatus("Choosing from your gallery needs a native picker plugin, which isn't installed yet. Use the camera for now."));
+            galleryButton.onClick.AddListener(ChooseFromGallery);
         }
 
         void OnEnable()
@@ -55,6 +54,28 @@ namespace LostPetNetwork.UI
         {
             if (_startRoutine != null) StopCoroutine(_startRoutine);
             StopCamera();
+        }
+
+        void ChooseFromGallery()
+        {
+            if (!GalleryPicker.IsAvailable)
+            {
+                ShowStatus("Choosing from the gallery isn't available on this device yet. Use the camera.");
+                return;
+            }
+            GalleryPicker.Pick(bytes =>
+            {
+                if (this == null) return; // the screen was destroyed while the chooser was open
+                if (bytes == null || bytes.Length == 0) return; // cancelled
+                var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!texture.LoadImage(bytes))
+                {
+                    Destroy(texture);
+                    ShowStatus("That file couldn't be read as a picture. Try another photo.");
+                    return;
+                }
+                CommitCapture(texture);
+            });
         }
 
         void Close()

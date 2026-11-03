@@ -28,6 +28,9 @@ namespace LostPetNetwork.UI
         [SerializeField] TMP_Text recordHint;
         [SerializeField] Button playButton;
         [SerializeField] Button removeVoiceButton;
+        [SerializeField] GameObject dictateRow;
+        [SerializeField] Button dictateButton;
+        [SerializeField] Button dictateLanguageButton;
         [SerializeField] LoadingButton sendButton;
         [SerializeField] TMP_Text sentTitle;
         [SerializeField] TMP_Text sentText;
@@ -39,7 +42,16 @@ namespace LostPetNetwork.UI
         SosAlert _sent;
         bool _busy;
         bool _recording;
+        bool _dictating;
+        string _noteBeforeDictation = string.Empty;
+        int _languageIndex;
         int _visitId;
+
+        // The phone's own language first, then the languages people here are most likely to speak.
+        static readonly (string label, string tag)[] DictationLanguages =
+        {
+            ("phone", string.Empty), ("Arabic", "ar-TN"), ("French", "fr-FR"), ("English", "en-US")
+        };
 
         public SosDraft Draft => _draft;
 
@@ -50,6 +62,8 @@ namespace LostPetNetwork.UI
             recordButton.onClick.AddListener(ToggleRecording);
             playButton.onClick.AddListener(() => { if (!VoicePlayback.Play(_draft.AudioWav)) banner.ShowError("Couldn't play the voice note."); });
             removeVoiceButton.onClick.AddListener(() => { _draft.AudioWav = null; RefreshVoice(); });
+            dictateButton.onClick.AddListener(ToggleDictation);
+            dictateLanguageButton.onClick.AddListener(NextDictationLanguage);
             sendButton.Button.onClick.AddListener(Send);
             resolveButton.Button.onClick.AddListener(Resolve);
             seeAlertsButton.onClick.AddListener(() => manager.Show(ScreenId.Sos));
@@ -68,6 +82,8 @@ namespace LostPetNetwork.UI
             sentRoot.SetActive(false);
             RefreshVoice();
             SetRecording(false);
+            SetDictating(false);
+            dictateRow.SetActive(SpeechToText.IsAvailable);
             FindLocation();
 
             // Someone with an alert already open sees it instead of a blank form.
@@ -89,8 +105,10 @@ namespace LostPetNetwork.UI
         {
             _visitId++;
             if (_recording) MicRecorder.Cancel();
+            if (_dictating) SpeechToText.Cancel();
             VoicePlayback.Stop();
             _recording = false;
+            _dictating = false;
         }
 
         void Update()
@@ -132,7 +150,67 @@ namespace LostPetNetwork.UI
         void ToggleRecording()
         {
             if (_recording) StopRecording();
-            else StartRecording();
+            else
+            {
+                if (_dictating) { SpeechToText.Cancel(); SetDictating(false); } // the microphone can only do one thing at a time
+                StartRecording();
+            }
+        }
+
+        void NextDictationLanguage()
+        {
+            _languageIndex = (_languageIndex + 1) % DictationLanguages.Length;
+            RefreshDictation();
+        }
+
+        void ToggleDictation()
+        {
+            if (_dictating) { SpeechToText.Stop(); return; } // the text heard so far arrives as the final result
+            StartDictation();
+        }
+
+        async void StartDictation()
+        {
+            int visit = _visitId;
+            if (_recording) StopRecording();
+            _noteBeforeDictation = noteField.Input.text ?? string.Empty;
+            banner.Hide();
+            SetDictating(true);
+            string error = await SpeechToText.StartAsync(DictationLanguages[_languageIndex].tag,
+                text => { if (this != null && visit == _visitId) ShowDictated(text); },
+                text =>
+                {
+                    if (this == null || visit != _visitId) return;
+                    if (!string.IsNullOrWhiteSpace(text)) ShowDictated(text);
+                    SetDictating(false);
+                },
+                message =>
+                {
+                    if (this == null || visit != _visitId) return;
+                    SetDictating(false);
+                    banner.ShowError(message);
+                });
+            if (this == null || visit != _visitId) return;
+            if (error != null) { SetDictating(false); banner.ShowError(error); }
+        }
+
+        void ShowDictated(string text)
+        {
+            string joined = string.IsNullOrWhiteSpace(_noteBeforeDictation) ? text : _noteBeforeDictation.TrimEnd() + " " + text;
+            noteField.Input.SetTextWithoutNotify(joined.Length > 300 ? joined.Substring(0, 300) : joined);
+        }
+
+        void SetDictating(bool dictating)
+        {
+            _dictating = dictating;
+            RefreshDictation();
+        }
+
+        void RefreshDictation()
+        {
+            dictateButton.GetComponent<TMP_Text>().text = _dictating ? "Listening… tap to stop" : "Dictate the note";
+            dictateLanguageButton.GetComponent<TMP_Text>().text = "Language: " + DictationLanguages[_languageIndex].label;
+            dictateLanguageButton.interactable = !_dictating;
         }
 
         async void StartRecording()
@@ -147,8 +225,11 @@ namespace LostPetNetwork.UI
         void StopRecording()
         {
             _draft.AudioWav = MicRecorder.Stop();
+            bool silent = _draft.AudioWav != null && MicRecorder.LastPeak < 0.003f;
+            if (silent) _draft.AudioWav = null;
             SetRecording(false);
             RefreshVoice();
+            if (silent) banner.ShowError("The recording is silent. Check that nothing covers the microphone, then record again.");
         }
 
         void SetRecording(bool recording)

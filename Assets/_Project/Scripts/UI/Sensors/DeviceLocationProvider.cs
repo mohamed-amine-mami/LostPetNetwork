@@ -88,23 +88,93 @@ namespace LostPetNetwork.UI
         }
     }
 
-    /// <summary>The phone's compass heading (degrees clockwise from north).</summary>
+    /// <summary>
+    /// The compass heading of the direction the back camera faces (degrees clockwise from north). On Android it
+    /// reads the rotation-vector sensor directly, because Unity's legacy compass returns nothing when only the new
+    /// Input System is active. Elsewhere it uses Unity's compass.
+    /// </summary>
     public class DeviceHeadingProvider : IHeadingProvider
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        const int RotationVectorSensor = 11;
+        const int SensorDelayUi = 2;
+
+        sealed class Listener : AndroidJavaProxy
+        {
+            public volatile float Heading = -1f;
+            public Listener() : base("android.hardware.SensorEventListener") { }
+
+            public void onSensorChanged(AndroidJavaObject sensorEvent)
+            {
+                var v = sensorEvent.Get<float[]>("values");
+                if (v == null || v.Length < 3) return;
+                float w = v.Length > 3 ? v[3] : Mathf.Sqrt(Mathf.Max(0f, 1f - v[0] * v[0] - v[1] * v[1] - v[2] * v[2]));
+                var h = CompassMath.HeadingFromRotationVector(v[0], v[1], v[2], w);
+                if (h.HasValue) Heading = h.Value;
+            }
+
+            public void onAccuracyChanged(AndroidJavaObject sensor, int accuracy) { }
+        }
+
+        AndroidJavaObject _manager;
+        AndroidJavaObject _sensor;
+        Listener _listener;
+#endif
+
         public bool IsAvailable => Application.isMobilePlatform;
 
         public float? HeadingDegrees
         {
             get
             {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                if (_listener != null) return _listener.Heading >= 0f ? _listener.Heading : (float?)null;
+#endif
                 if (!Input.compass.enabled) return null;
-                float heading = Input.compass.trueHeading > 0f ? Input.compass.trueHeading : Input.compass.magneticHeading;
-                return heading;
+                return Input.compass.trueHeading > 0f ? Input.compass.trueHeading : Input.compass.magneticHeading;
             }
         }
 
-        public void StartTracking() => Input.compass.enabled = true;
+        public void StartTracking()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                if (_listener == null)
+                {
+                    using var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                    using var activity = player.GetStatic<AndroidJavaObject>("currentActivity");
+                    _manager = activity.Call<AndroidJavaObject>("getSystemService", "sensor");
+                    _sensor = _manager?.Call<AndroidJavaObject>("getDefaultSensor", RotationVectorSensor);
+                    if (_sensor != null)
+                    {
+                        _listener = new Listener();
+                        _manager.Call<bool>("registerListener", _listener, _sensor, SensorDelayUi);
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("Rotation-vector compass unavailable: " + e.Message);
+                _listener = null;
+            }
+#endif
+            Input.compass.enabled = true;
+        }
 
-        public void StopTracking() => Input.compass.enabled = false;
+        public void StopTracking()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                if (_listener != null && _manager != null) _manager.Call("unregisterListener", _listener);
+            }
+            catch (System.Exception e) { Debug.LogWarning("Stopping the compass failed: " + e.Message); }
+            _listener = null;
+            _sensor = null;
+            _manager = null;
+#endif
+            Input.compass.enabled = false;
+        }
     }
 }

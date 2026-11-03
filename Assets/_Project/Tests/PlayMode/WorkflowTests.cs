@@ -332,15 +332,53 @@ namespace LostPetNetwork.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Camera_gallery_button_explains_the_limitation()
+        public IEnumerator Gallery_choice_attaches_the_chosen_photo_and_returns_to_the_report()
         {
             yield return Boot(true);
             _manager.Push(ScreenId.Report);
             _manager.Push(ScreenId.Camera);
             yield return Frames();
-            Click("Camera/Controls/GalleryButton");
-            Assert.IsTrue(Active("Camera/StatusPanel"));
-            StringAssert.Contains("native picker", Text("Camera/StatusPanel"));
+
+            var picture = new Texture2D(320, 240, TextureFormat.RGB24, false);
+            byte[] jpeg = picture.EncodeToJPG(80);
+            Object.Destroy(picture);
+            GalleryPicker.Override = done => done(jpeg); // SIMULATED chooser: automated tests have no gallery
+            try
+            {
+                Click("Camera/Controls/GalleryButton");
+                yield return Frames();
+            }
+            finally { GalleryPicker.Override = null; }
+
+            Assert.AreEqual(ScreenId.Report, _manager.Current);
+            Assert.IsTrue(AppSession.Draft.HasPhoto);
+        }
+
+        [UnityTest]
+        public IEnumerator Cancelling_or_a_broken_gallery_file_does_not_attach_a_photo()
+        {
+            yield return Boot(true);
+            _manager.Push(ScreenId.Report);
+            _manager.Push(ScreenId.Camera);
+            yield return Frames();
+
+            try
+            {
+                GalleryPicker.Override = done => done(null); // the user backed out of the chooser
+                Click("Camera/Controls/GalleryButton");
+                yield return Frames();
+                Assert.AreEqual(ScreenId.Camera, _manager.Current);
+                Assert.IsFalse(AppSession.Draft.HasPhoto);
+
+                GalleryPicker.Override = done => done(new byte[] { 1, 2, 3, 4 }); // not a picture
+                Click("Camera/Controls/GalleryButton");
+                yield return Frames();
+                Assert.AreEqual(ScreenId.Camera, _manager.Current);
+                Assert.IsFalse(AppSession.Draft.HasPhoto);
+                Assert.IsTrue(Active("Camera/StatusPanel"));
+                StringAssert.Contains("couldn't be read", Text("Camera/StatusPanel"));
+            }
+            finally { GalleryPicker.Override = null; }
         }
 
         [UnityTest]

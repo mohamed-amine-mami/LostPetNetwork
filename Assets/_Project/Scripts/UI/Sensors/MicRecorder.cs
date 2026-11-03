@@ -16,6 +16,9 @@ namespace LostPetNetwork.UI
         static float _startedAt;
 
         public static bool IsRecording => _clip != null && Microphone.IsRecording(null);
+        /// <summary>Loudest sample (0 to 1) of the last finished recording; near zero means the microphone captured silence.</summary>
+        public static float LastPeak { get; private set; }
+
         public static float Elapsed => IsRecording ? Time.realtimeSinceStartup - _startedAt : 0f;
 
         /// <summary>Starts recording. Returns null on success or a message for the user.</summary>
@@ -59,6 +62,9 @@ namespace LostPetNetwork.UI
             var samples = new float[position];
             clip.GetData(samples, 0);
             Object.Destroy(clip);
+            float peak = 0f;
+            foreach (var v in samples) peak = Mathf.Max(peak, Mathf.Abs(v));
+            LastPeak = peak;
             return WavCodec.Encode(samples, SampleRate);
         }
 
@@ -74,6 +80,10 @@ namespace LostPetNetwork.UI
     public static class VoicePlayback
     {
         static AudioSource _source;
+        static AudioListener _listener;
+
+        /// <summary>True when something in the app can output sound (an AudioListener exists).</summary>
+        public static bool CanOutputSound => _listener != null || Object.FindAnyObjectByType<AudioListener>() != null;
 
         public static bool IsPlaying => _source != null && _source.isPlaying;
 
@@ -86,7 +96,14 @@ namespace LostPetNetwork.UI
                 var go = new GameObject("VoicePlayback") { hideFlags = HideFlags.HideAndDontSave };
                 Object.DontDestroyOnLoad(go);
                 _source = go.AddComponent<AudioSource>();
+                _source.spatialBlend = 0f; // plain stereo, not 3D
+                _source.volume = 1f;
+                _source.playOnAwake = false;
             }
+            // Unity plays nothing unless the scene has an AudioListener, and the app's scenes have none.
+            if (!CanOutputSound) _listener = _source.gameObject.AddComponent<AudioListener>();
+            AudioListener.volume = 1f;
+            AudioListener.pause = false;
             Stop();
             var clip = AudioClip.Create("voice-note", samples.Length, 1, rate, false);
             clip.SetData(samples, 0);
