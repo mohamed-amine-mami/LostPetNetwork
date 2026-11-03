@@ -201,5 +201,24 @@ namespace LostPetNetwork.Tests
             Assert.AreSame(alert, ArRequest.Alert);
             CollectionAssert.AreEqual(new[] { ArMode.Radar, ArMode.Guide }, _fake.Opened);
         }
+
+        [Test]
+        public void HeadingFromRotationVector_reads_north_east_and_undefined_when_flat()
+        {
+            // Phone upright, back camera facing north: a 90 degree turn about the east axis.
+            Assert.AreEqual(0f, CompassMath.HeadingFromRotationVector(0.7071f, 0f, 0f, 0.7071f).Value, 0.5f);
+            // The same phone turned to face east.
+            Assert.AreEqual(90f, CompassMath.HeadingFromRotationVector(0.5f, -0.5f, -0.5f, 0.5f).Value, 0.5f);
+            // Lying flat with the screen up, the back camera points down: no heading.
+            Assert.IsFalse(CompassMath.HeadingFromRotationVector(0f, 0f, 0f, 1f).HasValue);
+        }
+
+        [Test]
+        public void PetDrawDistance_keeps_the_pet_between_2_and_8_metres()
+        {
+            Assert.AreEqual(2f, ArMath.PetDrawDistance(0.5));
+            Assert.AreEqual(5f, ArMath.PetDrawDistance(5));
+            Assert.AreEqual(8f, ArMath.PetDrawDistance(29));
+        }
     }
 }

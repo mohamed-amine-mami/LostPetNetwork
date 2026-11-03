@@ -122,9 +122,9 @@ namespace LostPetNetwork.AR
 
             var bounds = Measure(_content);
             int cm = ArMath.ToCentimetres(bounds.size.y);
-            infoLabel.text = ArRequest.Mode == ArMode.PlaceAvatar
+            SetInfo(ArRequest.Mode == ArMode.PlaceAvatar
                 ? $"About {cm} cm tall. Drag to turn."
-                : $"About {cm} cm tall (approximate). The ring shows roughly {ArRequest.RecommendedSpaceM2} m² of space. Drag to turn.";
+                : $"About {cm} cm tall (approximate). The ring shows roughly {ArRequest.RecommendedSpaceM2} m² of space. Drag to turn.");
             hintLabel.text = "Walk around it to see if it fits your space";
             resetButton.gameObject.SetActive(true);
         }
@@ -172,8 +172,16 @@ namespace LostPetNetwork.AR
         public void ResetPlacement()
         {
             DestroyContent();
-            infoLabel.text = string.Empty;
+            SetInfo(string.Empty);
             resetButton.gameObject.SetActive(false);
+        }
+
+        /// <summary>Shows the info text in its pill, and hides the empty pill before anything is placed.</summary>
+        void SetInfo(string text)
+        {
+            infoLabel.text = text;
+            var pill = infoLabel.transform.parent;
+            if (pill != null && pill.GetComponent<Canvas>() == null) pill.gameObject.SetActive(!string.IsNullOrEmpty(text));
         }
 
         void DestroyContent()

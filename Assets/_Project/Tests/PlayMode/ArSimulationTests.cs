@@ -141,6 +141,42 @@ namespace LostPetNetwork.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Radar_stands_a_3D_pet_in_front_of_you_only_for_a_nearby_report_with_a_pet_look()
+        {
+            yield return Boot();
+            var fakeLoc = new FakeLocationProvider();
+            SensorHub.Location = fakeLoc;
+            SensorHub.Heading = new FakeHeadingProvider { HeadingDegrees = 0f }; // facing north
+            fakeLoc.Push(new GeoFix(36.8000, 10.1800));
+
+            string look = "{\"v\":1,\"species\":0,\"coat\":1,\"pattern\":0,\"size\":1,\"ears\":0,\"collar\":1}";
+            var near = new PetReport { Id = "near", PetName = "Nearby", Latitude = 36.80009, Longitude = 10.1800, PetAvatarJson = look }; // about 10 m north
+            var far = new PetReport { Id = "far", PetName = "Far", Latitude = 36.8100, Longitude = 10.1800, PetAvatarJson = look };      // about 1.1 km
+            var noLook = new PetReport { Id = "nolook", PetName = "Bird", Latitude = 36.80009, Longitude = 10.1801 };
+
+            ArLauncher.OpenRadar(new[] { near, far, noLook }, null);
+            yield return WaitFor(() => SceneManager.GetSceneByName(ArService.CompassScene).isLoaded);
+            yield return WaitFor(() => Object.FindAnyObjectByType<ArCompassController>() != null);
+            var controller = Object.FindAnyObjectByType<ArCompassController>();
+            yield return WaitFor(() => controller.ShownPetCount == 1);
+
+            Assert.AreEqual(2, controller.PetCount, "only reports with a pet look get a 3D model");
+            Assert.AreEqual(1, controller.ShownPetCount, "only the report within 30 m is shown in 3D");
+            var pet = GameObject.Find("Pet Nearby");
+            Assert.IsNotNull(pet);
+            Assert.IsTrue(pet.activeSelf);
+            Assert.IsNull(GameObject.Find("Pet Far"), "the far pet stays hidden (Find only returns active objects)");
+
+            yield return new WaitForSecondsRealtime(2f); // let the pet settle (it eases toward its spot while the simulated camera moves)
+            var cam = Camera.allCameras.First(c => c.targetTexture == null && c.gameObject.scene.name == ArService.CompassScene);
+            var toPet = pet.transform.position - cam.transform.position;
+            toPet.y = 0f;
+            Assert.Greater(Vector3.Dot(toPet.normalized, Quaternion.Euler(0f, ArMath.CameraYaw(cam.transform), 0f) * Vector3.forward), 0.8f,
+                "facing north, a pet to the north stands in front of the camera");
+            Assert.AreEqual(8f, toPet.magnitude, 1.5f, "10 m away is drawn 8 m ahead, the farthest comfortable distance");
+        }
+
+        [UnityTest]
         public IEnumerator Guide_arrow_points_toward_the_alert_and_shows_the_distance()
         {
             yield return Boot();
