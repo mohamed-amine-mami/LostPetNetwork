@@ -4,12 +4,13 @@ using LostPetNetwork.Services.Adoption;
 using LostPetNetwork.Services.Auth;
 using LostPetNetwork.Services.Reports;
 using LostPetNetwork.Services.Sos;
+using LostPetNetwork.Services.Vets;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace LostPetNetwork.UI
 {
-    public enum ScreenId { Splash, SignIn, SignUp, ResetPassword, Home, Explore, Map, Report, Camera, Details, MyReports, Profile, AvatarCreator, PetCreator, Adoption, AdoptionDetails, AdopterProfile, AdoptionCreate, Sos, SosCreate, SosDetails }
+    public enum ScreenId { Splash, SignIn, SignUp, ResetPassword, Home, Explore, Map, Report, Camera, Details, MyReports, Profile, AvatarCreator, PetCreator, Adoption, AdoptionDetails, AdopterProfile, AdoptionCreate, Sos, SosCreate, SosDetails, Vets }
 
     [Serializable]
     public class ScreenEntry
@@ -37,7 +38,7 @@ namespace LostPetNetwork.UI
             ScreenId.Home, ScreenId.Explore, ScreenId.Map, ScreenId.Report, ScreenId.Camera,
             ScreenId.Details, ScreenId.MyReports, ScreenId.Profile, ScreenId.AvatarCreator, ScreenId.PetCreator,
             ScreenId.Adoption, ScreenId.AdoptionDetails, ScreenId.AdopterProfile, ScreenId.AdoptionCreate,
-            ScreenId.Sos, ScreenId.SosCreate, ScreenId.SosDetails
+            ScreenId.Sos, ScreenId.SosCreate, ScreenId.SosDetails, ScreenId.Vets
         };
 
         /// <summary>True while a full-screen AR scene is open: the system Back button and shakes belong to it.</summary>
@@ -83,6 +84,7 @@ namespace LostPetNetwork.UI
                 ReportServices.UseSupabase();
                 AdoptionServices.UseSupabase();
                 SosServices.UseSupabase();
+                VetServices.UseSupabase();
                 if (!SignedInScreens.Contains(Current)) Show(ScreenId.Home);
             }
             else
@@ -90,6 +92,7 @@ namespace LostPetNetwork.UI
                 ReportServices.UseDemo();
                 AdoptionServices.UseDemo();
                 SosServices.UseDemo();
+                VetServices.UseDemo();
                 AppSession.Reset();
                 Show(ScreenId.SignIn);
             }
@@ -137,7 +140,8 @@ namespace LostPetNetwork.UI
                 case ScreenId.Adoption: Show(ScreenId.Home); break;
                 case ScreenId.Sos: Show(ScreenId.Home); break;
                 case ScreenId.SosCreate:
-                case ScreenId.SosDetails: Show(ScreenId.Sos); break;
+                case ScreenId.SosDetails:
+                case ScreenId.Vets: Show(ScreenId.Sos); break;
             }
         }
 

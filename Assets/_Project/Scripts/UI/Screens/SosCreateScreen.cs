@@ -36,6 +36,7 @@ namespace LostPetNetwork.UI
         [SerializeField] TMP_Text sentText;
         [SerializeField] LoadingButton resolveButton;
         [SerializeField] Button seeAlertsButton;
+        [SerializeField] Button findVetButton;
         [SerializeField] MessageBanner banner;
 
         SosDraft _draft = new SosDraft();
@@ -67,6 +68,7 @@ namespace LostPetNetwork.UI
             sendButton.Button.onClick.AddListener(Send);
             resolveButton.Button.onClick.AddListener(Resolve);
             seeAlertsButton.onClick.AddListener(() => manager.Show(ScreenId.Sos));
+            findVetButton.onClick.AddListener(() => manager.Push(ScreenId.Vets));
         }
 
         async void OnEnable()

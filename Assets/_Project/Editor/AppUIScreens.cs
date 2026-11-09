@@ -156,6 +156,7 @@ namespace LostPetNetwork.EditorTools
         {
             var (root, content) = NewScreen(parent, "Home", TabScreenBottomPadding);
             Spacer(content, 4);
+            Logo(content);
             var greeting = Txt(content, "Greeting", "Good morning", 15, Theme.TextSecondary, F.Medium);
             Txt(content, "Headline", "Let’s bring pets home", 26, Theme.Forest900, F.Heading);
 

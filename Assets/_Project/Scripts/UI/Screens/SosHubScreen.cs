@@ -18,6 +18,7 @@ namespace LostPetNetwork.UI
         [SerializeField] ScreenManager manager;
         [SerializeField] Button backButton;
         [SerializeField] Button sendButton;
+        [SerializeField] Button vetsButton;
         [SerializeField] TMP_Text countLabel;
         [SerializeField] Transform listRoot;
         [SerializeField] SosRowView rowPrefab;
@@ -33,6 +34,7 @@ namespace LostPetNetwork.UI
         {
             backButton.onClick.AddListener(() => { if (!manager.Back()) manager.Show(ScreenId.Home); });
             sendButton.onClick.AddListener(() => manager.Push(ScreenId.SosCreate));
+            vetsButton.onClick.AddListener(() => manager.Push(ScreenId.Vets));
         }
 
         void OnEnable()
