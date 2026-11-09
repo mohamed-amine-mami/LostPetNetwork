@@ -162,6 +162,8 @@ namespace LostPetNetwork.Tests.PlayMode
             Assert.AreEqual(ScreenId.Home, _manager.Current);
             Assert.IsTrue(Active("TabBar"));
             StringAssert.Contains("Test", Text("Home/Viewport/Content/Greeting"));
+            Assert.AreEqual("LostPetNetwork", Text("Home/Viewport/Content/Logo/Wordmark"), "the app logo is at the top of Home");
+            Assert.IsTrue(Active("Home/Viewport/Content/Logo/Mark"));
             Assert.AreEqual(2, Children("Home/Viewport/Content/List"), "two preview cards");
         }
 

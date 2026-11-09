@@ -232,6 +232,7 @@ namespace LostPetNetwork.EditorTools
             _pinPrefab = BuildMapPinPrefab();
             _adoptionCardPrefab = BuildAdoptionCardPrefab();
             _sosRowPrefab = BuildSosRowPrefab();
+            _vetRowPrefab = BuildVetRowPrefab();
         }
 
         static T SavePrefab<T>(GameObject root, string name) where T : Component
@@ -397,6 +398,7 @@ namespace LostPetNetwork.EditorTools
                 (ScreenId.Sos, BuildSosHub(safe, manager)),
                 (ScreenId.SosCreate, BuildSosCreate(safe, manager)),
                 (ScreenId.SosDetails, BuildSosDetails(safe, manager)),
+                (ScreenId.Vets, BuildVets(safe, manager)),
             };
             var tabBar = BuildTabBar(safe, manager);
 

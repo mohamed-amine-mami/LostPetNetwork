@@ -57,6 +57,8 @@ namespace LostPetNetwork.EditorTools
             var send = PrimaryButton(card.transform, "SendButton", "Send an SOS", Theme.Card, Theme.TerracottaInk);
             Txt(card.transform, "Tip", "Tip: shake your phone to open this quickly.", 12, Theme.TerracottaSoft);
 
+            var vets = PrimaryButton(content, "VetsButton", "Find a vet near you", Theme.Forest700, Theme.OnBrand);
+
             SectionTitle(content, "Open alerts");
             var count = Txt(content, "Count", "0 open alerts", 12, Theme.TextSecondary, F.Medium);
             var banner = Banner(content);
@@ -66,7 +68,7 @@ namespace LostPetNetwork.EditorTools
             var empty = EmptyState(content, "No open alerts right now. Thank you for keeping watch.");
 
             var screen = root.AddComponent<SosHubScreen>();
-            Wire(screen, "manager", manager, "backButton", back, "sendButton", send.Button, "countLabel", count,
+            Wire(screen, "manager", manager, "backButton", back, "sendButton", send.Button, "vetsButton", vets.Button, "countLabel", count,
                 "listRoot", list, "rowPrefab", _sosRowPrefab, "loading", loading, "emptyState", empty.root, "banner", banner);
             return root;
         }
@@ -132,6 +134,7 @@ namespace LostPetNetwork.EditorTools
             var sentTitle = Txt(sentCard.transform, "Title", "Your alert is live", 26, Theme.Forest900, F.Heading);
             var sentText = Txt(sentCard.transform, "Text", "", 15, Theme.TextPrimary);
             var resolve = PrimaryButton(sent, "ResolveButton", "Mark as resolved", Theme.Forest700, Theme.OnBrand);
+            var findVet = LinkButton(sent, "FindVetButton", "Find a vet near you", TextAlignmentOptions.Center);
             var seeAlerts = LinkButton(sent, "SeeAlertsButton", "See all alerts", TextAlignmentOptions.Center);
             sent.gameObject.SetActive(false);
 
@@ -140,7 +143,7 @@ namespace LostPetNetwork.EditorTools
                 "locationLabel", locLabel, "refreshLocationButton", refresh, "noteField", note, "recordButton", record,
                 "recordLabel", recordLabel, "recordHint", recordHint, "playButton", play, "removeVoiceButton", removeVoice,
                 "sendButton", send, "sentTitle", sentTitle, "sentText", sentText, "resolveButton", resolve,
-                "seeAlertsButton", seeAlerts, "banner", banner,
+                "seeAlertsButton", seeAlerts, "findVetButton", findVet, "banner", banner,
                 "dictateRow", dictateRow.gameObject, "dictateButton", dictate, "dictateLanguageButton", dictateLanguage);
             return root;
         }

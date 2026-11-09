@@ -100,6 +100,71 @@ namespace LostPetNetwork.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Placed_model_can_be_resized_moved_and_turned_and_real_size_restores_it()
+        {
+            yield return Boot();
+            var listing = new MockAdoptionRepository(latencyMs: 0).GetAvailableAsync().Result.First(l => l.Name == "Rocky");
+            ArLauncher.OpenTryAtHome(listing);
+            yield return WaitFor(() => SceneManager.GetSceneByName(ArService.PlaceScene).isLoaded);
+            yield return null;
+            yield return null;
+            var controller = Object.FindAnyObjectByType<ArPlacementController>();
+            Assert.IsFalse(controller.HasPlaced);
+            Assert.IsFalse(GameObject.Find("PlaceButton") != null && GameObject.Find("PlaceButton").activeInHierarchy, "no surface found yet, so no Place here button");
+            Assert.IsFalse(GameObject.Find("Controls") != null && GameObject.Find("Controls").activeInHierarchy, "resize and move controls wait until it is placed");
+
+            var cam = Camera.main;
+            var spot = cam.transform.position + cam.transform.forward * 1.8f + Vector3.down * 0.8f;
+            controller.Place(spot);
+            yield return null;
+            yield return null;
+            var info = GameObject.Find("InfoPanel").GetComponentInChildren<TMPro.TMP_Text>();
+            StringAssert.DoesNotContain("resized", info.text);
+            var placed = GameObject.Find("PlacedPet");
+            float realScale = placed.transform.localScale.x;
+            Assert.IsTrue(GameObject.Find("Controls").activeInHierarchy, "the move and resize controls appear after placing");
+            Assert.IsFalse(GameObject.Find("RealSizeButton") != null && GameObject.Find("RealSizeButton").activeInHierarchy, "nothing to restore at real size");
+
+            controller.SetUserScale(1.5f);
+            yield return null;
+            Assert.AreEqual(realScale * 1.5f, placed.transform.localScale.x, 1e-4f);
+            StringAssert.Contains("resized to 150%", info.text);
+            Assert.IsTrue(GameObject.Find("RealSizeButton").activeInHierarchy, "Real size shows once it is resized");
+
+            controller.SetUserScale(10f);
+            Assert.AreEqual(2f, controller.UserScale, "capped at double size");
+            controller.SetUserScale(0f);
+            Assert.AreEqual(0.5f, controller.UserScale, "capped at half size");
+
+            var moved = spot + new Vector3(0.4f, 0f, -0.3f);
+            controller.MoveTo(moved);
+            controller.SetYaw(120f);
+            Assert.AreEqual(moved, placed.transform.position);
+            Assert.AreEqual(120f, controller.ContentYaw, 0.01f);
+            var ring = GameObject.Find("SpaceRing");
+            if (ring != null) Assert.AreEqual(moved.x, ring.transform.position.x, 1e-4f, "the space ring moves with the pet");
+
+            GameObject.Find("RealSizeButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.AreEqual(1f, controller.UserScale);
+            Assert.AreEqual(realScale, placed.transform.localScale.x, 1e-4f);
+            StringAssert.DoesNotContain("resized", info.text);
+
+            Assert.IsTrue(controller.MoveMode);
+            GameObject.Find("ModeButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.IsFalse(controller.MoveMode);
+            StringAssert.Contains("Turn", GameObject.Find("ModeButton").GetComponentInChildren<TMPro.TMP_Text>().text);
+
+            GameObject.Find("ResetButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.IsFalse(controller.HasPlaced);
+            Assert.AreEqual(1f, controller.UserScale);
+
+            ArService.Close(ArService.PlaceScene);
+            yield return WaitFor(() => !ArService.IsOpen);
+        }
+
+        [UnityTest]
         public IEnumerator Radar_puts_a_pin_for_each_report_and_tapping_one_returns_it()
         {
             yield return Boot();
@@ -196,8 +261,22 @@ namespace LostPetNetwork.Tests.PlayMode
             float z = arrow.localEulerAngles.z;
             Assert.AreEqual(90f, z, 5f, "the arrow turns left (counter-clockwise) toward the target");
             string distance = GameObject.Find("DistancePanel").GetComponentInChildren<TMPro.TMP_Text>().text;
-            StringAssert.Contains("km away", distance);
+            StringAssert.Contains("km", distance);
+            StringAssert.Contains("on foot", GameObject.Find("WalkPanel").GetComponentInChildren<TMPro.TMP_Text>().text);
+            Assert.AreEqual("Turn left", GameObject.Find("InstructionPanel").GetComponentInChildren<TMPro.TMP_Text>().text, "the alert is 90° to the left");
+            Assert.AreEqual(90f, GameObject.Find("Dial").transform.localEulerAngles.z, 5f, "facing east, north is to the left on the compass ring");
+            var letterN = GameObject.Find("LetterN").transform;
+            Assert.AreEqual(0f, Mathf.DeltaAngle(0f, letterN.localEulerAngles.z + GameObject.Find("Dial").transform.localEulerAngles.z), 5f, "the letters stay upright");
             Assert.AreEqual(1, Object.FindObjectsByType<ArMarkerView>().Length);
+
+            // Turn toward the alert: the words change and the arrow turns green.
+            ((FakeHeadingProvider)SensorHub.Heading).HeadingDegrees = 0f; // facing north, the alert is straight ahead
+            var words = GameObject.Find("InstructionPanel").GetComponentInChildren<TMPro.TMP_Text>();
+            yield return WaitFor(() => words.text == "Straight ahead");
+            float settle = 0f;
+            while (settle < 1.2f) { settle += Time.unscaledDeltaTime; yield return null; } // the colour eases in as well
+            var disc = GameObject.Find("Arrow").transform.Find("Disc").GetComponent<UnityEngine.UI.Image>().color;
+            Assert.Greater(disc.g, disc.r + 0.25f, "green when you face the target");
         }
 
         [UnityTest]

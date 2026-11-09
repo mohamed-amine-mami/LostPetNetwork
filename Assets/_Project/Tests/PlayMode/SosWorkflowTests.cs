@@ -246,9 +246,11 @@ namespace LostPetNetwork.Tests.PlayMode
             yield return Boot();
             var shake = _manager.GetComponent<ShakeToSos>();
             Assert.IsNotNull(shake, "the shake listener is attached");
+            _manager.Show(ScreenId.Sos);
+            yield return Frames(2);
             shake.OnShake();
             yield return Frames(3);
-            Assert.AreEqual(ScreenId.SosCreate, _manager.Current);
+            Assert.AreEqual(ScreenId.SosCreate, _manager.Current, "the rescue hub itself advertises the shake tip");
             int depth = _manager.HistoryDepth;
             shake.OnShake();
             yield return Frames(2);

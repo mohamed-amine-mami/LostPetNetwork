@@ -49,6 +49,35 @@ namespace LostPetNetwork.Services.Sensors
             return $"{meters / 1000.0:0.#} km";
         }
 
+        /// <summary>How well the phone points at a target: straight at it, a little off, or facing elsewhere.</summary>
+        public enum Alignment { Aligned, Near, Off }
+
+        public static Alignment AlignmentOf(double relativeBearing)
+        {
+            double a = Math.Abs(relativeBearing);
+            return a <= 15.0 ? Alignment.Aligned : a <= 45.0 ? Alignment.Near : Alignment.Off;
+        }
+
+        /// <summary>The words that go with the arrow, from the bearing to the target relative to where the phone points.</summary>
+        public static string GuideInstruction(double relativeBearing, bool arrived)
+        {
+            if (arrived) return "You're here";
+            double a = Math.Abs(relativeBearing);
+            string side = relativeBearing < 0 ? "left" : "right";
+            if (a <= 15.0) return "Straight ahead";
+            if (a <= 45.0) return "Slightly " + side;
+            if (a <= 135.0) return "Turn " + side;
+            return "Turn around";
+        }
+
+        /// <summary>Walking time at an easy 5 km/h pace, as "about 6 min on foot".</summary>
+        public static string WalkingText(double meters)
+        {
+            int minutes = (int)Math.Max(1.0, Math.Round(meters / (5000.0 / 60.0)));
+            if (minutes >= 90) return $"about {minutes / 60.0:0.#} h on foot";
+            return minutes == 1 ? "about 1 min on foot" : $"about {minutes} min on foot";
+        }
+
         /// <summary>True when the target is close enough to count as "arrived".</summary>
         public static bool HasArrived(double meters, double radiusMeters = 20.0) => meters <= radiusMeters;
     }

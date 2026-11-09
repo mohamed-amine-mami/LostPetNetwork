@@ -135,6 +135,33 @@ namespace LostPetNetwork.EditorTools
 
         // ------------------------------------------------------------------ placement scene
 
+        static Texture2D ArPlaneGridTexture()
+        {
+            const int size = 64;
+            string path = ArSceneDir + "/ArPlaneGrid.png";
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), new Vector2(size / 2f, size / 2f));
+                    float dot = Mathf.Clamp01(1f - (d - 3f) / 2.5f);           // a soft dot in the middle
+                    float tint = 0.12f;                                        // a slight wash so the whole plane reads as a surface
+                    byte alpha = (byte)(Mathf.Clamp01(Mathf.Max(dot, tint)) * 255f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            tex.SetPixels32(pixels);
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+            AssetDatabase.ImportAsset(path);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = true;
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
         static GameObject BuildArPlanePrefab()
         {
             string matPath = ArSceneDir + "/ArPlane.mat";
@@ -150,9 +177,13 @@ namespace LostPetNetwork.EditorTools
                 mat.SetOverrideTag("RenderType", "Transparent");
                 mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                mat.SetColor("_BaseColor", new Color(0.12f, 0.3f, 0.23f, 0.28f));
                 AssetDatabase.CreateAsset(mat, matPath);
             }
+            // A faint grid of dots (one every 20 cm) so the user can see which surfaces the phone has found.
+            mat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.55f));
+            mat.SetTexture("_BaseMap", ArPlaneGridTexture());
+            mat.SetTextureScale("_BaseMap", new Vector2(5f, 5f));
+            EditorUtility.SetDirty(mat);
             string prefabPath = ArSceneDir + "/ArPlane.prefab";
             var go = new GameObject("ArPlane", typeof(ARPlane), typeof(ARPlaneMeshVisualizer), typeof(MeshFilter), typeof(MeshRenderer));
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
@@ -178,10 +209,25 @@ namespace LostPetNetwork.EditorTools
             Anchor(resetRt, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(240, 52));
             reset.gameObject.GetComponent<LayoutElement>().ignoreLayout = true;
 
+
+            var place = PrimaryButton(safe, "PlaceButton", "Place here", Theme.Forest700, Theme.OnBrand);
+            Anchor((RectTransform)place.transform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(240, 52));
+            place.gameObject.GetComponent<LayoutElement>().ignoreLayout = true;
+            place.gameObject.SetActive(false);
+
+            var controls = NewRect("Controls", safe);
+            HLayout(controls.gameObject, 8, null, TextAnchor.MiddleCenter, expandWidth: true);
+            Anchor(controls, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 250), new Vector2(340, 44));
+            var mode = PillButton(controls, "ModeButton", "One finger: Move", "locate");
+            var realSize = PillButton(controls, "RealSizeButton", "Real size", "check");
+            realSize.gameObject.SetActive(false);
+            controls.gameObject.SetActive(false);
+
             var controller = new GameObject("ArPlacementController").AddComponent<ArPlacementController>();
             Wire(controller, "raycastManager", raycast, "planeManager", planes, "cameraManager", cameraManager,
                 "arCamera", cam, "sun", sun, "titleLabel", title, "hintLabel", hint, "infoLabel", info,
-                "closeButton", close, "resetButton", reset.Button);
+                "closeButton", close, "resetButton", reset.Button, "placeButton", place.Button,
+                "modeButton", mode, "realSizeButton", realSize, "controlsRow", controls.gameObject);
 
             string path = ArSceneDir + "/ArPlace.unity";
             EditorSceneManager.SaveScene(scene, path);
@@ -229,8 +275,26 @@ namespace LostPetNetwork.EditorTools
             strip.anchorMin = new Vector2(0, 0.5f); strip.anchorMax = new Vector2(1, 0.5f); strip.pivot = new Vector2(0.5f, 0.5f);
             strip.anchoredPosition = new Vector2(0, 40); strip.sizeDelta = new Vector2(0, 80);
 
+            // Compass ring behind the arrow: north stays put while you turn, so you can read which way you face.
+            var dial = NewRect("Dial", safe);
+            Anchor(dial, new Vector2(0.5f, 0), new Vector2(0.5f, 0.5f), new Vector2(0, 290), new Vector2(172, 172));
+            var ring = Img(dial, "Ring", new Color(1f, 0.99f, 0.97f, 0.9f), _circle);
+            ring.raycastTarget = false;
+            Stretch(ring.rectTransform);
+            var ringFill = Img(dial, "Fill", new Color(0.09f, 0.23f, 0.17f, 0.72f), _circle);
+            ringFill.raycastTarget = false;
+            Anchor(ringFill.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(160, 160));
+            foreach (var (letter, x, y) in new[] { ("N", 0f, 71f), ("E", 71f, 0f), ("S", 0f, -71f), ("W", -71f, 0f) })
+            {
+                var t = Txt(dial, "Letter" + letter, letter, 15, letter == "N" ? new Color(1f, 0.55f, 0.4f) : Theme.OnBrand, F.Bold, TextAlignmentOptions.Center);
+                t.raycastTarget = false;
+                Anchor(t.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(24, 24));
+                var le = t.gameObject.GetComponent<LayoutElement>() ?? t.gameObject.AddComponent<LayoutElement>();
+                le.ignoreLayout = true;
+            }
+
             var arrow = NewRect("Arrow", safe);
-            Anchor(arrow, new Vector2(0.5f, 0), new Vector2(0.5f, 0.5f), new Vector2(0, 210), new Vector2(110, 110));
+            Anchor(arrow, new Vector2(0.5f, 0), new Vector2(0.5f, 0.5f), new Vector2(0, 290), new Vector2(110, 110));
             var arrowBg = Img(arrow, "Disc", new Color(0.09f, 0.23f, 0.17f, 0.82f), _circle);
             arrowBg.raycastTarget = false;
             Stretch(arrowBg.rectTransform);
@@ -241,11 +305,16 @@ namespace LostPetNetwork.EditorTools
             Anchor(icon.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64, 64));
             icon.rectTransform.localEulerAngles = new Vector3(0, 0, 45f); // the icon points up-right; turn it to point up
 
-            var (distRoot, distance) = ArPanel(safe, "DistancePanel", new Vector2(0.5f, 0), 110f, 300f, 18, Theme.OnBrand);
+            var (instrRoot, instruction) = ArPanel(safe, "InstructionPanel", new Vector2(0.5f, 0), 392f, 300f, 22, Theme.OnBrand);
+            instruction.fontStyle = FontStyles.Bold;
+            var (distRoot, distance) = ArPanel(safe, "DistancePanel", new Vector2(0.5f, 0), 130f, 300f, 34, Theme.OnBrand);
+            distance.fontStyle = FontStyles.Bold;
+            var (walkRoot, walk) = ArPanel(safe, "WalkPanel", new Vector2(0.5f, 0), 88f, 300f, 14, Theme.Forest100);
             var (statusRoot, status) = ArPanel(safe, "StatusPanel", new Vector2(0.5f, 0), 40f, 320f, 13, Theme.Forest100);
 
             var controller = new GameObject("ArCompassController").AddComponent<ArCompassController>();
             Wire(controller, "arCamera", cam, "markerRoot", strip, "markerPrefab", markerPrefab, "arrow", arrow,
+                "dial", dial, "arrowDisc", arrowBg, "arrowIcon", icon, "instructionLabel", instruction, "walkLabel", walk,
                 "titleLabel", title, "statusLabel", status, "distanceLabel", distance, "closeButton", close);
 
             string path = ArSceneDir + "/ArCompass.unity";

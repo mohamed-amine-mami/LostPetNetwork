@@ -220,5 +220,114 @@ namespace LostPetNetwork.Tests
             Assert.AreEqual(5f, ArMath.PetDrawDistance(5));
             Assert.AreEqual(8f, ArMath.PetDrawDistance(29));
         }
+
+        [Test]
+        public void UserScale_is_kept_between_half_and_double_and_survives_bad_values()
+        {
+            Assert.AreEqual(0.5f, ArMath.ClampUserScale(0.1f));
+            Assert.AreEqual(2f, ArMath.ClampUserScale(9f));
+            Assert.AreEqual(1.3f, ArMath.ClampUserScale(1.3f));
+            Assert.AreEqual(1f, ArMath.ClampUserScale(float.NaN));
+        }
+
+        [Test]
+        public void Pinch_scales_with_the_fingers_distance_and_ignores_a_zero_start()
+        {
+            Assert.AreEqual(1.5f, ArMath.PinchScale(1f, 200f, 300f), 1e-4f);
+            Assert.AreEqual(0.5f, ArMath.PinchScale(1f, 400f, 50f), "never smaller than half size");
+            Assert.AreEqual(2f, ArMath.PinchScale(1.5f, 100f, 400f), "never bigger than double");
+            Assert.AreEqual(1.2f, ArMath.PinchScale(1.2f, 0f, 300f), "no jump when the start distance is unknown");
+        }
+
+        [Test]
+        public void Twist_is_positive_when_the_fingers_turn_clockwise_on_the_screen()
+        {
+            var start = new UnityEngine.Vector2(100f, 0f);
+            Assert.AreEqual(90f, ArMath.TwistDegrees(start, new UnityEngine.Vector2(0f, -100f)), 0.01f, "right to down is clockwise");
+            Assert.AreEqual(-90f, ArMath.TwistDegrees(start, new UnityEngine.Vector2(0f, 100f)), 0.01f);
+            Assert.AreEqual(0f, ArMath.TwistDegrees(start, UnityEngine.Vector2.zero));
+        }
+
+        [Test]
+        public void A_surface_needs_30_centimetres_each_way()
+        {
+            Assert.IsTrue(ArMath.PlaneBigEnough(new UnityEngine.Vector2(0.8f, 0.5f)));
+            Assert.IsFalse(ArMath.PlaneBigEnough(new UnityEngine.Vector2(0.8f, 0.2f)));
+            Assert.IsFalse(ArMath.PlaneBigEnough(new UnityEngine.Vector2(0.1f, 0.1f)));
+        }
+
+        [Test]
+        public void PlacementInfo_says_the_size_and_mentions_resizing_only_when_it_happened()
+        {
+            Assert.AreEqual("About 60 cm tall (approximate). The ring shows roughly 4 m² of space.", ArMath.PlacementInfo(false, 0.6f, 1f, 4f));
+            Assert.AreEqual("About 90 cm tall (resized to 150%). The ring shows roughly 4 m² of space.", ArMath.PlacementInfo(false, 0.6f, 1.5f, 4f));
+            Assert.AreEqual("About 170 cm tall.", ArMath.PlacementInfo(true, 1.7f, 1f, 0f));
+            Assert.AreEqual("About 85 cm tall (resized to 50%).", ArMath.PlacementInfo(true, 1.7f, 0.5f, 0f));
+            Assert.AreEqual("About 60 cm tall (approximate).", ArMath.PlacementInfo(false, 0.6f, 1f, 0f), "no space sentence without a recommendation");
+        }
+
+        [Test]
+        public void Ring_needs_a_quarter_second_to_turn_green_and_one_bad_frame_does_not_flip_it()
+        {
+            var r = new ReticleStabilizer();
+            Assert.AreEqual(ReticleState.None, r.Feed(ReticleState.Good, 0.1f), "a first sighting is not trusted yet");
+            Assert.AreEqual(ReticleState.None, r.Feed(ReticleState.Good, 0.1f));
+            Assert.AreEqual(ReticleState.Good, r.Feed(ReticleState.Good, 0.1f), "after 0.3 s it is steady");
+            Assert.AreEqual(ReticleState.Good, r.Feed(ReticleState.Rough, 0.016f), "one rough frame is ignored");
+            Assert.AreEqual(ReticleState.Good, r.Feed(ReticleState.Good, 0.016f));
+            Assert.AreEqual(ReticleState.Good, r.Feed(ReticleState.None, 0.1f), "a short loss keeps the ring");
+        }
+
+        [Test]
+        public void Ring_goes_away_after_losing_the_surface_for_a_while_and_downgrades_when_rough_lasts()
+        {
+            var r = new ReticleStabilizer();
+            for (int i = 0; i < 5; i++) r.Feed(ReticleState.Good, 0.1f);
+            Assert.AreEqual(ReticleState.Good, r.State);
+            for (int i = 0; i < 3; i++) r.Feed(ReticleState.Rough, 0.1f);
+            Assert.AreEqual(ReticleState.Rough, r.State, "a lasting rough reading downgrades the ring");
+            for (int i = 0; i < 3; i++) r.Feed(ReticleState.None, 0.1f);
+            Assert.AreEqual(ReticleState.Rough, r.State, "0.3 s without a surface is still within the grace time");
+            r.Feed(ReticleState.None, 0.2f);
+            Assert.AreEqual(ReticleState.None, r.State);
+            r.Feed(ReticleState.Good, 0.3f);
+            Assert.AreEqual(ReticleState.Good, r.State);
+            r.Reset();
+            Assert.AreEqual(ReticleState.None, r.State);
+        }
+
+        [TestCase(0, "Straight ahead")]
+        [TestCase(-14, "Straight ahead")]
+        [TestCase(30, "Slightly right")]
+        [TestCase(-30, "Slightly left")]
+        [TestCase(90, "Turn right")]
+        [TestCase(-120, "Turn left")]
+        [TestCase(170, "Turn around")]
+        [TestCase(-179, "Turn around")]
+        public void GuideInstruction_gives_plain_words_for_the_turn(double relative, string expected) =>
+            Assert.AreEqual(expected, CompassMath.GuideInstruction(relative, false));
+
+        [Test]
+        public void GuideInstruction_says_you_are_here_once_arrived_whatever_the_angle()
+        {
+            Assert.AreEqual("You're here", CompassMath.GuideInstruction(120, true));
+        }
+
+        [Test]
+        public void Alignment_is_aligned_within_15_degrees_near_within_45_and_off_otherwise()
+        {
+            Assert.AreEqual(CompassMath.Alignment.Aligned, CompassMath.AlignmentOf(-15));
+            Assert.AreEqual(CompassMath.Alignment.Near, CompassMath.AlignmentOf(15.5));
+            Assert.AreEqual(CompassMath.Alignment.Near, CompassMath.AlignmentOf(-45));
+            Assert.AreEqual(CompassMath.Alignment.Off, CompassMath.AlignmentOf(46));
+            Assert.AreEqual(CompassMath.Alignment.Off, CompassMath.AlignmentOf(180));
+        }
+
+        [TestCase(10, "about 1 min on foot")]
+        [TestCase(500, "about 6 min on foot")]
+        [TestCase(1100, "about 13 min on foot")]
+        [TestCase(10000, "about 2 h on foot")]
+        public void WalkingText_uses_a_5_kmh_pace(double meters, string expected) =>
+            Assert.AreEqual(expected, CompassMath.WalkingText(meters));
     }
 }

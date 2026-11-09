@@ -21,6 +21,11 @@ namespace LostPetNetwork.AR
         [SerializeField] RectTransform markerRoot;
         [SerializeField] ArMarkerView markerPrefab;
         [SerializeField] RectTransform arrow;
+        [SerializeField] RectTransform dial;
+        [SerializeField] Image arrowDisc;
+        [SerializeField] Image arrowIcon;
+        [SerializeField] TMP_Text instructionLabel;
+        [SerializeField] TMP_Text walkLabel;
         [SerializeField] TMP_Text titleLabel;
         [SerializeField] TMP_Text statusLabel;
         [SerializeField] TMP_Text distanceLabel;
@@ -46,6 +51,11 @@ namespace LostPetNetwork.AR
 
         readonly List<Target> _targets = new List<Target>();
         readonly List<PetTarget> _pets = new List<PetTarget>();
+        static readonly Color AlignedColor = new Color(0.13f, 0.55f, 0.32f, 0.92f);
+        static readonly Color NearColor = new Color(0.88f, 0.62f, 0.12f, 0.9f);
+        static readonly Color OffColor = new Color(0.09f, 0.23f, 0.17f, 0.82f);
+
+        TMP_Text[] _dialLetters;
         float _failedAt;
         float _smoothedHeading;
         bool _hasHeading;
@@ -73,7 +83,10 @@ namespace LostPetNetwork.AR
             bool guide = ArRequest.Mode == ArMode.Guide;
             titleLabel.text = guide ? "Guide to the alert" : "Pets around you";
             arrow.gameObject.SetActive(guide);
-            distanceLabel.transform.parent.gameObject.SetActive(guide); // the label sits inside its own pill
+            dial.gameObject.SetActive(guide);
+            _dialLetters = dial.GetComponentsInChildren<TMP_Text>(true);
+            // Each label sits inside its own pill, which is shown only in guide mode.
+            foreach (var label in new[] { distanceLabel, walkLabel, instructionLabel }) label.transform.parent.gameObject.SetActive(guide);
 
             if (guide && ArRequest.Alert != null)
             {
@@ -140,10 +153,36 @@ namespace LostPetNetwork.AR
             if (ArRequest.Mode == ArMode.Guide && nearest != null)
             {
                 double bearing = GeoMath.BearingDegrees(me.Value.Latitude, me.Value.Longitude, nearest.Latitude, nearest.Longitude);
-                arrow.localRotation = Quaternion.Euler(0f, 0f, CompassMath.ArrowRotation(GeoMath.RelativeBearing(bearing, _smoothedHeading)));
+                double relative = GeoMath.RelativeBearing(bearing, _smoothedHeading);
                 bool arrived = CompassMath.HasArrived(nearestMeters);
-                distanceLabel.text = arrived ? "You're here. Look around carefully." : CompassMath.DistanceText(nearestMeters) + " away";
+                ShowGuide(relative, nearestMeters, arrived);
             }
+        }
+
+        /// <summary>
+        /// The guide: an arrow that turns green as it lines up, a compass ring that keeps north in place, the
+        /// distance in big numbers, how long it takes to walk, and plain words such as "Turn left".
+        /// </summary>
+        void ShowGuide(double relative, double meters, bool arrived)
+        {
+            arrow.localRotation = Quaternion.Euler(0f, 0f, arrived ? 0f : CompassMath.ArrowRotation(relative));
+            dial.localRotation = Quaternion.Euler(0f, 0f, _smoothedHeading); // north stays where north is
+            foreach (var letter in _dialLetters) letter.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -_smoothedHeading); // letters stay upright
+
+            Color wanted = arrived ? AlignedColor : CompassMath.AlignmentOf(relative) switch
+            {
+                CompassMath.Alignment.Aligned => AlignedColor,
+                CompassMath.Alignment.Near => NearColor,
+                _ => OffColor
+            };
+            arrowDisc.color = Color.Lerp(arrowDisc.color, wanted, 1f - Mathf.Exp(-10f * Time.unscaledDeltaTime));
+            arrowIcon.enabled = !arrived;
+            float pulse = arrived ? 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 4f) : 1f;
+            arrow.localScale = new Vector3(pulse, pulse, 1f);
+
+            instructionLabel.text = CompassMath.GuideInstruction(relative, arrived);
+            distanceLabel.text = arrived ? "Here" : CompassMath.DistanceText(meters);
+            walkLabel.text = arrived ? "Look around carefully" : CompassMath.WalkingText(meters);
         }
 
         void HideAll()

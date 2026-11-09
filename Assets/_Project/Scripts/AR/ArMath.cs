@@ -36,6 +36,34 @@ namespace LostPetNetwork.AR
         /// <summary>The avatar is built about 2.2 units tall; this makes it a 1.7 m person.</summary>
         public const float AvatarScale = 0.77f;
 
+        /// <summary>How far the user may shrink or enlarge the model, relative to its real size.</summary>
+        public const float MinUserScale = 0.5f, MaxUserScale = 2f;
+
+        public static float ClampUserScale(float scale) =>
+            UnityEngine.Mathf.Clamp(float.IsNaN(scale) ? 1f : scale, MinUserScale, MaxUserScale);
+
+        /// <summary>The new size multiplier after a pinch: the fingers' distance now against when the pinch began.</summary>
+        public static float PinchScale(float startScale, float startDistance, float currentDistance) =>
+            startDistance < 1f ? startScale : ClampUserScale(startScale * currentDistance / startDistance);
+
+        /// <summary>Degrees the fingers have twisted since the gesture began; clockwise on the screen is positive.</summary>
+        public static float TwistDegrees(UnityEngine.Vector2 startVector, UnityEngine.Vector2 currentVector) =>
+            startVector.sqrMagnitude < 1f || currentVector.sqrMagnitude < 1f ? 0f : -UnityEngine.Vector2.SignedAngle(startVector, currentVector);
+
+        /// <summary>A detected surface is worth placing on when it is at least 30 cm across both ways.</summary>
+        public static bool PlaneBigEnough(UnityEngine.Vector2 size) => size.x >= 0.3f && size.y >= 0.3f;
+
+        /// <summary>The text under the model: its height, whether it was resized, and the space a pet needs.</summary>
+        public static string PlacementInfo(bool avatar, float realHeightMetres, float userScale, float spaceM2)
+        {
+            int cm = ToCentimetres(realHeightMetres * userScale);
+            bool resized = UnityEngine.Mathf.Abs(userScale - 1f) > 0.02f;
+            string size = resized ? $"About {cm} cm tall (resized to {UnityEngine.Mathf.RoundToInt(userScale * 100f)}%)" : $"About {cm} cm tall";
+            if (avatar) return size + ".";
+            string space = spaceM2 > 0 ? $" The ring shows roughly {spaceM2} m² of space." : "";
+            return size + (resized ? "." : " (approximate).") + space;
+        }
+
         /// <summary>Whole centimetres, for a readable "about 55 cm tall".</summary>
         public static int ToCentimetres(float metres) => (int)Math.Round(metres * 100f);
     }

@@ -21,7 +21,7 @@ namespace LostPetNetwork.Services.Sensors
         float _blockedUntil = float.NegativeInfinity;
 
         /// <param name="threshold">Acceleration magnitude (g) above which a reading is a jolt; resting is about 1 g.</param>
-        public ShakeDetector(float threshold = 2.2f, int jolts = 4, float window = 1.2f, float minGap = 0.08f, float cooldown = 4f)
+        public ShakeDetector(float threshold = 1.8f, int jolts = 3, float window = 1.2f, float minGap = 0.08f, float cooldown = 4f)
         {
             _threshold = threshold;
             _jolts = jolts;

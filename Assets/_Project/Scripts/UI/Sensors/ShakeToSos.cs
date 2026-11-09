@@ -36,15 +36,17 @@ namespace LostPetNetwork.UI
         /// <summary>Called when a shake is recognised (public so tests and the Editor can trigger it).</summary>
         public void OnShake()
         {
+            Debug.Log($"[Shake] detected on {(_manager != null ? _manager.Current.ToString() : "no manager")}, blocked={ScreenManager.InputBlocked}, signedIn={AuthService.Instance.IsSignedIn}");
             if (_manager == null || ScreenManager.InputBlocked || !AuthService.Instance.IsSignedIn) return;
             switch (_manager.Current)
             {
                 case ScreenId.Splash: case ScreenId.SignIn: case ScreenId.SignUp: case ScreenId.ResetPassword:
-                case ScreenId.Sos: case ScreenId.SosCreate: case ScreenId.SosDetails:
+                case ScreenId.SosCreate: case ScreenId.SosDetails:
                 case ScreenId.Camera: case ScreenId.AvatarCreator: case ScreenId.PetCreator:
                     return;
             }
-            Handheld.Vibrate();
+            try { Handheld.Vibrate(); }
+            catch (System.Exception e) { Debug.LogWarning("[Shake] vibrate failed: " + e.Message); }
             _manager.Push(ScreenId.SosCreate);
         }
     }
