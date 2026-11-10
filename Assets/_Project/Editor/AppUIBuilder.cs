@@ -242,6 +242,25 @@ namespace LostPetNetwork.EditorTools
             Object.DestroyImmediate(root);
             return saved.GetComponent<T>();
         }
+        // ------------------------------------------------------------------ prefabs
+
+        static void hi()
+        {
+            _cardPrefab = BuildPetCardPrefab();
+            _rowPrefab = BuildReportRowPrefab();
+            _pinPrefab = BuildMapPinPrefab();
+            _adoptionCardPrefab = BuildAdoptionCardPrefab();
+            _sosRowPrefab = BuildSosRowPrefab();
+            _vetRowPrefab = BuildVetRowPrefab();
+        }
+
+        static T hello<T>(GameObject root, string name) where T : Component
+        {
+            string path = $"{PrefabDir}/{name}.prefab";
+            var saved = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            return saved.GetComponent<T>();
+        }
 
         static PetCardView BuildPetCardPrefab()
         {
