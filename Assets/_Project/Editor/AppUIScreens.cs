@@ -446,7 +446,10 @@ namespace LostPetNetwork.EditorTools
             IconImg(useLocation, "locate", Theme.Forest700, 16);
             var useLocationLink = LinkButton(useLocation, "Link", "Use my current location", TextAlignmentOptions.Left);
             Le(useLocationLink.gameObject, minH: 32);
-            Txt(content, "WhenLabel", "When?", 13, Theme.TextPrimary, F.Bold);
+            var whenRow = NewRect("WhenRow", content);
+            HLayout(whenRow.gameObject, 6, null, TextAnchor.MiddleLeft);
+            IconImg(whenRow, "calendar", Theme.Forest700, 16);
+            Txt(whenRow, "WhenLabel", "When?", 13, Theme.TextPrimary, F.Bold);
             var when = ChipRow(content, "WhenChips", "Just now", "Today", "Yesterday", "Earlier");
 
             var more = Img(content, "MoreDetails", Theme.Card, _round16);
