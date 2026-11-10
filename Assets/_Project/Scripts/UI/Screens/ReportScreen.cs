@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace LostPetNetwork.UI
 {
     /// <summary>
-    /// Report a lost or found pet: form → review → post. The report is stored by the DEMO repository
+    /// Report a lost or found pet (one shared screen for both): form → review → post. The report is stored by the DEMO repository
     /// (in memory) because no reports table exists in Supabase yet.
     /// </summary>
     public class ReportScreen : MonoBehaviour
